@@ -13,6 +13,10 @@ export default function AuthGuard({ children }) {
     if (!loading && !user && pathname !== '/login') {
       router.push('/login');
     }
+    // Si ya estamos logueados, no debemos estar en login ni en el callback
+    if (!loading && user && (pathname === '/login' || pathname === '/auth/callback')) {
+      router.push('/');
+    }
   }, [user, loading, router, pathname]);
 
   if (loading) {
