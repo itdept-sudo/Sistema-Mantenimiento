@@ -7,3 +7,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 export const supabase = (supabaseUrl && supabaseAnonKey) 
   ? createClient(supabaseUrl, supabaseAnonKey) 
   : null;
+
+if (!supabase) {
+  console.error("SUPABASE_URL o ANON_KEY faltantes. Verifica tu archivo .env.local o variables en Vercel.");
+}

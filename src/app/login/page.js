@@ -18,7 +18,14 @@ export default function LoginPage() {
     try {
       setIsLoggingIn(true);
       const result = await loginWithGoogle();
-      if (result?.error) {
+      
+      if (!result) {
+        alert("Error: El cliente de Supabase no se ha inicializado correctamente. Verifica tus variables de entorno.");
+        setIsLoggingIn(false);
+        return;
+      }
+
+      if (result.error) {
         alert("Error de autenticación: " + result.error.message);
         setIsLoggingIn(false);
       }
