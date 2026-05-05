@@ -2,16 +2,32 @@
 
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 
 export default function LoginPage() {
   const { user, loginWithGoogle } = useAuth();
   const router = useRouter();
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
     if (user) router.push('/');
   }, [user, router]);
+
+  const handleLogin = async () => {
+    try {
+      setIsLoggingIn(true);
+      const result = await loginWithGoogle();
+      if (result?.error) {
+        alert("Error de autenticación: " + result.error.message);
+        setIsLoggingIn(false);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo iniciar la conexión con Google.");
+      setIsLoggingIn(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
@@ -25,11 +41,16 @@ export default function LoginPage() {
         </div>
 
         <button 
-          onClick={loginWithGoogle}
-          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 py-4 rounded-xl font-bold transition-all active:scale-95 shadow-lg"
+          onClick={handleLogin}
+          disabled={isLoggingIn}
+          className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 py-4 rounded-xl font-bold transition-all active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-          Iniciar sesión con Google
+          {isLoggingIn ? (
+            <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+          )}
+          {isLoggingIn ? 'Conectando...' : 'Iniciar sesión con Google'}
         </button>
 
         <p className="text-center text-xs text-slate-500 mt-8 leading-relaxed">
