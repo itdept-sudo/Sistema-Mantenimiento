@@ -17,6 +17,8 @@ export default function FloorPlan() {
 
   // Subscribe to changes
   useEffect(() => {
+    if (!supabase) return;
+
     const channel = supabase
       .channel('machine-status')
       .on('postgres_changes', { event: '*', table: 'machines' }, (payload) => {

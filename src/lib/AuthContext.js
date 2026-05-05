@@ -10,6 +10,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
@@ -19,6 +24,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const loginWithGoogle = () => {
+    if (!supabase) return;
     supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -27,7 +33,10 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  const logout = () => supabase.auth.signOut();
+  const logout = () => {
+    if (!supabase) return;
+    supabase.auth.signOut();
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading, loginWithGoogle, logout }}>
