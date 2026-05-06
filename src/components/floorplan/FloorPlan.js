@@ -50,7 +50,11 @@ export default function FloorPlan() {
       .eq('id', mappingMachineId);
 
     if (error) {
-      alert("Error al guardar: " + error.message);
+      alert("Error de permisos: Asegúrate de tener el rol de 'manager' en tu perfil de Supabase.");
+      console.error(error);
+    } else {
+      // Opcional: Feedback visual de éxito
+      console.log("Posición guardada");
     }
   };
 
