@@ -34,10 +34,8 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { profile, logout, loading } = useAuth();
   
-  // Debug para ver qué está pasando (puedes verlo en F12)
-  console.log("Sidebar Debug - Role:", profile?.role, "Loading:", loading);
-
-  const userRole = profile?.role || 'technician';
+  // Prioridad: 1. Perfil cargado, 2. Caché local, 3. Técnico (default)
+  const userRole = profile?.role || (typeof window !== 'undefined' ? localStorage.getItem('user_role') : null) || 'technician';
 
   const filteredItems = navItems.filter(item => {
     if (!item.roles) return true;

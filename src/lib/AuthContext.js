@@ -10,20 +10,17 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Función para cerrar sesión (Indestructible)
+  // Función de salida definitiva
   const logout = async () => {
-    console.log("Iniciando cierre de sesión...");
     try {
-      if (supabase) {
-        await supabase.auth.signOut();
-      }
+      localStorage.clear();
+      sessionStorage.clear();
+      if (supabase) await supabase.auth.signOut();
     } catch (e) {
-      console.error("Error en signOut:", e);
+      console.error(e);
+    } finally {
+      window.location.href = '/login';
     }
-    // Pase lo que pase, limpiamos y sacamos al usuario
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.href = '/login';
   };
 
   const loginWithGoogle = () => {
@@ -36,67 +33,56 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
+  const fetchProfile = async (userId) => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (data) {
+        setProfile(data);
+        localStorage.setItem('user_role', data.role); // Persistencia para el refresh
+      }
+    } catch (e) {
+      console.error("Error fetching profile:", e);
+    }
+  };
+
   useEffect(() => {
     if (!supabase) return;
 
-    // 1. Cargar sesión inicial
-    const checkSession = async () => {
+    // 1. Carga inicial rápida
+    const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       
       if (currentUser) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single();
-        setProfile(data);
+        await fetchProfile(currentUser.id);
       }
       setLoading(false);
     };
 
-    checkSession();
+    initAuth();
 
-    // 2. Escuchar cambios de estado de autenticación
+    // 2. Escuchar cambios
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      setLoading(false);
       
       if (currentUser) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single();
-        setProfile(data);
+        await fetchProfile(currentUser.id);
       } else {
         setProfile(null);
+        localStorage.removeItem('user_role');
       }
+      setLoading(false);
     });
 
-    // 3. Escuchar cambios en el PERFIL (Tiempo real para roles)
-    const profileSubscription = supabase
-      .channel('profile-changes')
-      .on('postgres_changes', { event: 'UPDATE', table: 'profiles' }, (payload) => {
-        if (payload.new.id === user?.id) {
-          setProfile(payload.new);
-        }
-      })
-      .subscribe();
-
-    // 4. Fail-safe: Forzar el fin de la carga tras 3 segundos pase lo que pase
-    const failSafe = setTimeout(() => {
-      setLoading(false);
-    }, 3000);
-
-    return () => {
-      subscription.unsubscribe();
-      supabase.removeChannel(profileSubscription);
-      clearTimeout(failSafe);
-    };
-  }, [user?.id]);
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, loginWithGoogle, logout }}>
