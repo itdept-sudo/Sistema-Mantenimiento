@@ -6,37 +6,52 @@ import { AlertCircle, CheckCircle2, Hammer, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function FloorPlan() {
-  const [machines, setMachines] = useState([
-    // Mock machines for development
-    { id: 1, name: 'Gauntlet III - 01', status: 'operating', x_pos: 20, y_pos: 30 },
-    { id: 2, name: 'Gauntlet III - 02', status: 'failure', x_pos: 25, y_pos: 30 },
-    { id: 3, name: 'Gauntlet III - 03', status: 'maintenance', x_pos: 30, y_pos: 30 },
-  ]);
+  const [machines, setMachines] = useState([]);
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [isMappingMode, setIsMappingMode] = useState(false);
+  const [mappingMachineId, setMappingMachineId] = useState(null);
 
-  // Subscribe to changes
-  useEffect(() => {
+  // Cargar máquinas desde Supabase
+  const fetchMachines = async () => {
     if (!supabase) return;
+    const { data, error } = await supabase
+      .from('machines')
+      .select('*')
+      .order('id', { ascending: true });
+    
+    if (data) setMachines(data);
+  };
 
+  useEffect(() => {
+    fetchMachines();
+
+    // Suscribirse a cambios en tiempo real
     const channel = supabase
       .channel('machine-status')
       .on('postgres_changes', { event: '*', table: 'machines' }, (payload) => {
-        // Update machines in state
-        console.log('Change received!', payload);
+        fetchMachines();
       })
       .subscribe();
 
     return () => supabase.removeChannel(channel);
   }, []);
 
-  const handleFloorClick = (e) => {
-    if (!isMappingMode) return;
+  const handleFloorClick = async (e) => {
+    if (!isMappingMode || !mappingMachineId) return;
+
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    console.log(`Coordenadas: x: ${x.toFixed(2)}, y: ${y.toFixed(2)}`);
-    alert(`X: ${x.toFixed(2)}, Y: ${y.toFixed(2)} - Guarda esto en la base de datos para esta máquina.`);
+
+    // Guardar en Supabase
+    const { error } = await supabase
+      .from('machines')
+      .update({ x_pos: x, y_pos: y })
+      .eq('id', mappingMachineId);
+
+    if (error) {
+      alert("Error al guardar: " + error.message);
+    }
   };
 
   return (
@@ -46,14 +61,29 @@ export default function FloorPlan() {
           <h2 className="text-3xl font-bold text-white tracking-tight">Plano Interactivo</h2>
           <p className="text-slate-400 mt-1">Mapa en tiempo real del taller de producción.</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
+          {isMappingMode && (
+            <select 
+              className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-700"
+              onChange={(e) => setMappingMachineId(e.target.value)}
+              value={mappingMachineId || ''}
+            >
+              <option value="">Selecciona máquina...</option>
+              {machines.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          )}
           <button 
-            onClick={() => setIsMappingMode(!isMappingMode)}
+            onClick={() => {
+              setIsMappingMode(!isMappingMode);
+              if (isMappingMode) setMappingMachineId(null);
+            }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               isMappingMode ? 'bg-orange-500 text-white shadow-lg shadow-orange-900/40' : 'bg-slate-800 text-slate-300'
             }`}
           >
-            {isMappingMode ? 'Desactivar Mapeo' : 'Modo Mapeo'}
+            {isMappingMode ? 'Terminar Mapeo' : 'Modo Mapeo'}
           </button>
           <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-lg shadow-blue-900/40 flex items-center gap-2">
             <Plus className="w-4 h-4" /> Nueva Máquina
