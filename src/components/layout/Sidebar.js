@@ -74,7 +74,10 @@ export default function Sidebar() {
       </nav>
 
       <div className="p-4 mt-auto border-t border-slate-800">
-        <button className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors group">
+        <button 
+          onClick={logout}
+          className="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-slate-400 hover:bg-red-950/30 hover:text-red-400 transition-colors group"
+        >
           <LogOut className="w-5 h-5 group-hover:scale-110 transition-transform" />
           <span className="font-medium">Cerrar Sesión</span>
         </button>
