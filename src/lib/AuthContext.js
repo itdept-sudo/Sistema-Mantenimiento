@@ -10,11 +10,20 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Función para cerrar sesión (Ahora más robusta)
+  // Función para cerrar sesión (Indestructible)
   const logout = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    window.location.href = '/login'; // Forzamos redirección manual
+    console.log("Iniciando cierre de sesión...");
+    try {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+    } catch (e) {
+      console.error("Error en signOut:", e);
+    }
+    // Pase lo que pase, limpiamos y sacamos al usuario
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/login';
   };
 
   const loginWithGoogle = () => {
