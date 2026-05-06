@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/AuthContext';
 import { 
   LayoutDashboard, 
   Map, 
@@ -9,7 +10,8 @@ import {
   Package, 
   Calendar, 
   Settings,
-  LogOut
+  LogOut,
+  Users
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -19,15 +21,20 @@ function cn(...inputs) {
 }
 
 const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Plano Planta', href: '/floor-plan', icon: Map },
-  { name: 'Órdenes', href: '/orders', icon: ClipboardList },
-  { name: 'Inventario', href: '/inventory', icon: Package },
-  { name: 'Calendario', href: '/calendar', icon: Calendar },
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
+  { name: 'Plano Planta', href: '/floor-plan', icon: Map, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
+  { name: 'Órdenes', href: '/orders', icon: ClipboardList, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
+  { name: 'Inventario', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'inventory'] },
+  { name: 'Calendario', href: '/calendar', icon: Calendar, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
+  { name: 'Usuarios', href: '/users', icon: Users, roles: ['admin'] },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { profile, logout } = useAuth();
+  const userRole = profile?.role || 'technician';
+
+  const filteredItems = navItems.filter(item => item.roles.includes(userRole));
 
   return (
     <div className="flex flex-col h-screen w-64 bg-slate-900 text-white border-r border-slate-800">
@@ -36,12 +43,12 @@ export default function Sidebar() {
           MaintOps Pro
         </h1>
         <p className="text-xs text-slate-400 mt-1 uppercase tracking-widest font-semibold">
-          Sistema de Gestión
+          {profile?.role ? profile.role.toUpperCase() : 'SISTEMA DE GESTIÓN'}
         </p>
       </div>
 
       <nav className="flex-1 px-4 space-y-2 mt-4">
-        {navItems.map((item) => (
+        {filteredItems.map((item) => (
           <Link
             key={item.name}
             href={item.href}

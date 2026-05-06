@@ -6,7 +6,12 @@ import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Upload
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderModal from '@/components/orders/OrderModal';
 
+import { useAuth } from '@/lib/AuthContext';
+
 export default function FloorPlan() {
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor';
+  
   const [machines, setMachines] = useState([]);
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [isMappingMode, setIsMappingMode] = useState(false);
@@ -143,23 +148,25 @@ export default function FloorPlan() {
         </div>
 
         <div className="flex gap-4 items-center">
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
-            className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 flex items-center gap-2"
-            title="Cargar nuevo archivo de plano"
-          >
-            {isUploading ? (
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <>
-                <Upload className="w-5 h-5" />
-                <span className="text-xs font-semibold">Cargar Plano</span>
-              </>
-            )}
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 flex items-center gap-2"
+              title="Cargar nuevo archivo de plano"
+            >
+              {isUploading ? (
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5" />
+                  <span className="text-xs font-semibold">Cargar Plano</span>
+                </>
+              )}
+            </button>
+          )}
 
-          {isMappingMode && (
+          {isMappingMode && isAdmin && (
             <select 
               className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-700"
               onChange={(e) => setMappingMachineId(e.target.value)}
@@ -172,18 +179,20 @@ export default function FloorPlan() {
             </select>
           )}
           
-          <button 
-            onClick={() => {
-              setIsMappingMode(!isMappingMode);
-              if (isMappingMode) setMappingMachineId(null);
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-              isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
-            }`}
-          >
-            <MapIcon className="w-4 h-4" />
-            {isMappingMode ? 'Listo' : 'Mapear'}
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                setIsMappingMode(!isMappingMode);
+                if (isMappingMode) setMappingMachineId(null);
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
+              }`}
+            >
+              <MapIcon className="w-4 h-4" />
+              {isMappingMode ? 'Listo' : 'Mapear'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -278,12 +287,14 @@ export default function FloorPlan() {
                   >
                     <Hammer className="w-4 h-4" /> Reportar Falla
                   </button>
-                  <button 
-                    onClick={() => handleResetPosition(selectedMachine.id)}
-                    className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" /> Quitar del Mapa
-                  </button>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => handleResetPosition(selectedMachine.id)}
+                      className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" /> Quitar del Mapa
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
