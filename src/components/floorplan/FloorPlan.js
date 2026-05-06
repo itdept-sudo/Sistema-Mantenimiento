@@ -128,7 +128,13 @@ export default function FloorPlan() {
       .from('machines')
       .update({ x_pos: 0, y_pos: 0 })
       .eq('id', machineId);
-    if (!error) setSelectedMachine(null);
+    
+    if (error) {
+      alert("No se pudo quitar la máquina: " + error.message);
+    } else {
+      setSelectedMachine(null);
+      fetchData();
+    }
   };
 
   const unmappedMachines = machines.filter(m => !m.x_pos || m.x_pos === 0);
