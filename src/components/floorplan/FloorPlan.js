@@ -12,6 +12,23 @@ export default function FloorPlan() {
   const [isMappingMode, setIsMappingMode] = useState(false);
   const [mappingMachineId, setMappingMachineId] = useState(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [machineOrders, setMachineOrders] = useState([]);
+
+  // Cargar órdenes cuando se selecciona una máquina
+  useEffect(() => {
+    if (selectedMachine && supabase) {
+      const fetchMachineOrders = async () => {
+        const { data } = await supabase
+          .from('work_orders')
+          .select('*')
+          .eq('machine_id', selectedMachine.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        setMachineOrders(data || []);
+      };
+      fetchMachineOrders();
+    }
+  }, [selectedMachine]);
 
   // Cargar máquinas desde Supabase
   const fetchMachines = async () => {
@@ -165,17 +182,25 @@ export default function FloorPlan() {
 
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Últimas Actividades</h4>
-                  <div className="space-y-3">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="flex gap-3 text-sm">
-                        <div className="mt-1 w-2 h-2 rounded-full bg-blue-500"></div>
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Historial Reciente</h4>
+                  <div className="space-y-4">
+                    {machineOrders.length > 0 ? machineOrders.map((order) => (
+                      <div key={order.id} className="flex gap-3 text-sm border-b border-slate-800/50 pb-3 last:border-0">
+                        <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
+                          order.status === 'open' ? 'bg-blue-500' :
+                          order.status === 'in_progress' ? 'bg-orange-500' :
+                          order.status === 'resolved' ? 'bg-emerald-500' : 'bg-slate-500'
+                        }`}></div>
                         <div>
-                          <p className="text-slate-300">Cambio de rodillo superior</p>
-                          <p className="text-[10px] text-slate-500">12 Mayo, 2024 - Tech: Carlos</p>
+                          <p className="text-slate-300 line-clamp-2">{order.description}</p>
+                          <p className="text-[10px] text-slate-500 mt-1 uppercase font-bold">
+                            {new Date(order.created_at).toLocaleDateString()} • {order.status}
+                          </p>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <p className="text-xs text-slate-600 italic">No hay órdenes registradas para esta máquina.</p>
+                    )}
                   </div>
                 </div>
 
