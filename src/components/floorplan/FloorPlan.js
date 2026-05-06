@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Image as ImageIcon, Settings } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Upload, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderModal from '@/components/orders/OrderModal';
 
@@ -14,18 +14,18 @@ export default function FloorPlan() {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [machineOrders, setMachineOrders] = useState([]);
   const [planImage, setPlanImage] = useState('/floorplan.png');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const fetchData = async () => {
     if (!supabase) return;
     
-    // Cargar Máquinas
     const { data: machinesData } = await supabase
       .from('machines')
       .select('*')
       .order('id', { ascending: true });
     if (machinesData) setMachines(machinesData);
 
-    // Cargar Configuración de Imagen
     const { data: settings } = await supabase
       .from('settings')
       .select('*')
@@ -61,15 +61,42 @@ export default function FloorPlan() {
     }
   }, [selectedMachine]);
 
-  const handleUpdateImage = async () => {
-    const newUrl = prompt("Pega la URL de la nueva imagen o nombre del archivo en public (ej: /nuevo-plano.png):", planImage);
-    if (newUrl && newUrl !== planImage) {
-      const { error } = await supabase
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file || !supabase) return;
+
+    setIsUploading(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `floorplan-${Math.random()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    try {
+      // 1. Subir al Storage (Asegúrate de que exista el bucket 'floor-plans')
+      const { error: uploadError } = await supabase.storage
+        .from('floor-plans')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Obtener URL Pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('floor-plans')
+        .getPublicUrl(filePath);
+
+      // 3. Actualizar Settings
+      const { error: settingsError } = await supabase
         .from('settings')
-        .upsert({ key: 'floor_plan_image', value: newUrl });
-      
-      if (error) alert("Error al guardar la imagen.");
-      else setPlanImage(newUrl);
+        .upsert({ key: 'floor_plan_image', value: publicUrl });
+
+      if (settingsError) throw settingsError;
+
+      setPlanImage(publicUrl);
+      alert("Plano actualizado correctamente.");
+    } catch (error) {
+      alert("Error al subir el archivo. Asegúrate de que el bucket 'floor-plans' sea público en Supabase.");
+      console.error(error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -101,6 +128,14 @@ export default function FloorPlan() {
 
   return (
     <div className="p-8 h-full flex flex-col">
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        className="hidden" 
+        accept="image/*" 
+        onChange={handleFileUpload}
+      />
+
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold text-white tracking-tight">Plano Interactivo</h2>
@@ -109,11 +144,19 @@ export default function FloorPlan() {
 
         <div className="flex gap-4 items-center">
           <button 
-            onClick={handleUpdateImage}
-            className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700"
-            title="Cambiar imagen de fondo"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 flex items-center gap-2"
+            title="Cargar nuevo archivo de plano"
           >
-            <ImageIcon className="w-5 h-5" />
+            {isUploading ? (
+              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <Upload className="w-5 h-5" />
+                <span className="text-xs font-semibold">Cargar Plano</span>
+              </>
+            )}
           </button>
 
           {isMappingMode && (
@@ -122,7 +165,7 @@ export default function FloorPlan() {
               onChange={(e) => setMappingMachineId(e.target.value)}
               value={mappingMachineId || ''}
             >
-              <option value="">Selecciona máquina...</option>
+              <option value="">Ubicar máquina...</option>
               {unmappedMachines.map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
@@ -135,11 +178,11 @@ export default function FloorPlan() {
               if (isMappingMode) setMappingMachineId(null);
             }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-              isMappingMode ? 'bg-orange-500 text-white shadow-lg shadow-orange-900/40' : 'bg-slate-800 text-slate-300'
+              isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
             }`}
           >
             <MapIcon className="w-4 h-4" />
-            {isMappingMode ? 'Listo' : 'Editar Mapa'}
+            {isMappingMode ? 'Listo' : 'Mapear'}
           </button>
         </div>
       </div>
