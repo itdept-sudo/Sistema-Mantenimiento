@@ -34,19 +34,28 @@ export default function KanbanBoard() {
   };
 
   const fetchOrders = async () => {
-    if (!supabase) return;
-    setLoading(true);
-    const { data } = await supabase
-      .from('work_orders')
-      .select(`
-        *,
-        machines (name),
-        profiles (full_name)
-      `)
-      .order('created_at', { ascending: false });
+    if (!supabase || !user) {
+      setLoading(false);
+      return;
+    }
     
-    if (data) setOrders(data);
-    setLoading(false);
+    try {
+      setLoading(true);
+      const { data } = await supabase
+        .from('work_orders')
+        .select(`
+          *,
+          machines (name),
+          profiles (full_name)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (data) setOrders(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

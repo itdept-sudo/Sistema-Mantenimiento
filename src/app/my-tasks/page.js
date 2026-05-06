@@ -11,20 +11,28 @@ export default function MyTasksPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchMyTasks = async () => {
-    if (!user) return;
-    setLoading(true);
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     
-    const { data } = await supabase
-      .from('work_orders')
-      .select(`
-        *,
-        machine:machines(name)
-      `)
-      .eq('technician_id', user.id)
-      .order('created_at', { ascending: false });
+    try {
+      setLoading(true);
+      const { data } = await supabase
+        .from('work_orders')
+        .select(`
+          *,
+          machine:machines(name)
+        `)
+        .eq('technician_id', user.id)
+        .order('created_at', { ascending: false });
 
-    if (data) setTasks(data);
-    setLoading(false);
+      if (data) setTasks(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

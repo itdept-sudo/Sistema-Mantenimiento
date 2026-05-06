@@ -22,14 +22,20 @@ export default function FloorPlan() {
   const fileInputRef = useRef(null);
 
   const fetchData = async () => {
-    if (!supabase) return;
+    if (!supabase || !user) return;
     
+    console.log("FloorPlan: Iniciando descarga de datos...");
     try {
-      const { data: machinesData } = await supabase
+      const { data: machinesData, error: mError } = await supabase
         .from('machines')
         .select('*')
         .order('id', { ascending: true });
-      if (machinesData) setMachines(machinesData);
+      
+      if (mError) throw mError;
+      if (machinesData) {
+        console.log("FloorPlan: Máquinas cargadas:", machinesData.length);
+        setMachines(machinesData);
+      }
 
       const { data: settings } = await supabase
         .from('settings')
@@ -38,7 +44,7 @@ export default function FloorPlan() {
         .single();
       if (settings) setPlanImage(settings.value);
     } catch (error) {
-      console.error("Error fetching floor plan data:", error);
+      console.error("FloorPlan Error:", error);
     }
   };
 
