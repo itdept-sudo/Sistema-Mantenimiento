@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { 
   MoreVertical, 
   Plus, 
@@ -11,13 +12,6 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-const initialOrders = [
-  { id: 'WO-1024', machine: 'Gauntlet III - 04', status: 'open', priority: 'urgent', tech: 'Pendiente', desc: 'Fuga de aceite en manguera principal' },
-  { id: 'WO-1025', machine: 'Omnibagger A', status: 'in_progress', priority: 'medium', tech: 'Juan Pérez', desc: 'Ajuste de sensores de proximidad' },
-  { id: 'WO-1026', machine: 'Gauntlet III - 12', status: 'resolved', priority: 'high', tech: 'Carlos Ruiz', desc: 'Cambio de rodamiento' },
-  { id: 'WO-1027', machine: 'Cafetera Industrial', status: 'closed', priority: 'low', tech: 'Juan Pérez', desc: 'Limpieza trimestral' },
-];
-
 const columns = [
   { id: 'open', name: 'Abiertas', color: 'bg-blue-500' },
   { id: 'in_progress', name: 'En Progreso', color: 'bg-orange-500' },
@@ -26,14 +20,54 @@ const columns = [
 ];
 
 export default function KanbanBoard() {
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchOrders = async () => {
+    if (!supabase) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('work_orders')
+      .select(`
+        *,
+        machines (name),
+        profiles (full_name)
+      `)
+      .order('created_at', { ascending: false });
+    
+    if (data) setOrders(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchOrders();
+
+    // Suscribirse a cambios en tiempo real
+    const channel = supabase
+      .channel('orders-updates')
+      .on('postgres_changes', { event: '*', table: 'work_orders' }, () => {
+        fetchOrders();
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  const handleUpdateStatus = async (orderId, newStatus) => {
+    const { error } = await supabase
+      .from('work_orders')
+      .update({ status: newStatus })
+      .eq('id', orderId);
+    
+    if (error) alert("Error al actualizar: " + error.message);
+  };
 
   return (
     <div className="p-8 h-full flex flex-col">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold text-white tracking-tight">Órdenes de Soporte</h2>
-          <p className="text-slate-400 mt-1">Gestión de actividades y reparaciones.</p>
+          <p className="text-slate-400 mt-1">Gestión de actividades y reparaciones en tiempo real.</p>
         </div>
         <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/40 flex items-center gap-2 transition-all active:scale-95">
           <Plus className="w-5 h-5" /> Nueva Orden
@@ -67,9 +101,6 @@ export default function KanbanBoard() {
                   {orders.filter(o => o.status === column.id).length}
                 </span>
               </div>
-              <button className="text-slate-600 hover:text-slate-400">
-                <MoreVertical className="w-4 h-4" />
-              </button>
             </div>
 
             <div className="flex-1 bg-slate-900/30 border border-slate-800/50 rounded-2xl p-4 space-y-4">
@@ -80,26 +111,44 @@ export default function KanbanBoard() {
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded uppercase tracking-wider">
-                      {order.id}
+                      WO-{order.id}
                     </span>
                     {order.priority === 'urgent' && (
                       <AlertCircle className="w-4 h-4 text-red-500" />
                     )}
                   </div>
-                  <h4 className="text-white font-bold mb-1">{order.machine}</h4>
+                  <h4 className="text-white font-bold mb-1">{order.machines?.name || 'Máquina desconocida'}</h4>
                   <p className="text-slate-500 text-sm line-clamp-2 mb-4 leading-relaxed">
-                    {order.desc}
+                    {order.description}
                   </p>
                   
                   <div className="flex justify-between items-center pt-4 border-t border-slate-800">
                     <div className="flex items-center gap-2 text-slate-400">
                       <User className="w-3.5 h-3.5" />
-                      <span className="text-xs font-medium">{order.tech}</span>
+                      <span className="text-xs font-medium">{order.profiles?.full_name || 'Sin asignar'}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-slate-500">
                       <Clock className="w-3.5 h-3.5" />
-                      <span className="text-[10px]">2h</span>
+                      <span className="text-[10px]">
+                        {new Date(order.created_at).toLocaleDateString()}
+                      </span>
                     </div>
+                  </div>
+
+                  {/* Status Toggle (Quick change) */}
+                  <div className="mt-4 flex gap-1">
+                    {columns.filter(c => c.id !== order.status).map(c => (
+                      <button
+                        key={c.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUpdateStatus(order.id, c.id);
+                        }}
+                        className="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded transition-colors"
+                      >
+                        Mover a {c.name}
+                      </button>
+                    ))}
                   </div>
                 </div>
               ))}

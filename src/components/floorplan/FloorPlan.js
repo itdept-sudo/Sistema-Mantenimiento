@@ -58,6 +58,26 @@ export default function FloorPlan() {
     }
   };
 
+  const handleReportFailure = async () => {
+    if (!selectedMachine || !supabase) return;
+
+    const { error } = await supabase
+      .from('work_orders')
+      .insert({
+        machine_id: selectedMachine.id,
+        description: `Falla reportada desde el plano interactivo.`,
+        priority: 'high',
+        status: 'open'
+      });
+
+    if (error) {
+      alert("Error al crear la orden: " + error.message);
+    } else {
+      alert(`Orden de trabajo creada para: ${selectedMachine.name}`);
+      setSelectedMachine(null);
+    }
+  };
+
   return (
     <div className="p-8 h-full flex flex-col">
       <div className="flex justify-between items-center mb-8">
@@ -104,8 +124,8 @@ export default function FloorPlan() {
             backgroundSize: '100% 100%',
             backgroundRepeat: 'no-repeat',
             width: '100%',
-            minWidth: '1000px', // Mantiene una base para que no se amontonen
-            aspectRatio: '1440/900', // Proporción común de planos
+            minWidth: '1000px',
+            aspectRatio: '1440/900',
             cursor: isMappingMode ? 'crosshair' : 'default'
           }}
         >
@@ -182,7 +202,10 @@ export default function FloorPlan() {
                 </div>
 
                 <div className="pt-6 border-t border-slate-800">
-                  <button className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2">
+                  <button 
+                    onClick={handleReportFailure}
+                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2"
+                  >
                     <Hammer className="w-4 h-4" /> Reportar Falla / Crear Orden
                   </button>
                 </div>
