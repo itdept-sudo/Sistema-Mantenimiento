@@ -8,23 +8,19 @@ import { ClipboardCheck, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 export default function MyTasksPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const fetchMyTasks = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (!supabase) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
     
+    setLoading(true);
     try {
-      setLoading(true);
       const { data } = await supabase
         .from('work_orders')
-        .select(`
-          *,
-          machine:machines(name)
-        `)
-        .eq('technician_id', user.id)
+        .select(`*, machine:machines(name)`)
+        .eq('technician_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (data) setTasks(data);
@@ -37,24 +33,9 @@ export default function MyTasksPage() {
 
   useEffect(() => {
     fetchMyTasks();
-    
-    const channel = supabase
-      .channel('my-tasks-updates')
-      .on('postgres_changes', { event: '*', table: 'work_orders', filter: `technician_id=eq.${user?.id}` }, () => fetchMyTasks())
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, [user]);
 
-  const updateTaskStatus = async (taskId, newStatus) => {
-    await supabase
-      .from('work_orders')
-      .update({ status: newStatus })
-      .eq('id', taskId);
-    fetchMyTasks();
-  };
-
-  if (loading) return (
+  if (loading && tasks.length === 0) return (
     <div className="p-8 flex justify-center">
       <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
     </div>

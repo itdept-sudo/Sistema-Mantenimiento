@@ -22,20 +22,18 @@ export default function FloorPlan() {
   const fileInputRef = useRef(null);
 
   const fetchData = async () => {
-    if (!supabase || !user) return;
+    if (!supabase) return;
     
-    console.log("FloorPlan: Iniciando descarga de datos...");
+    // Intentar obtener el usuario actual directamente de la sesión si el context falla
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+
     try {
-      const { data: machinesData, error: mError } = await supabase
+      const { data: machinesData } = await supabase
         .from('machines')
         .select('*')
         .order('id', { ascending: true });
-      
-      if (mError) throw mError;
-      if (machinesData) {
-        console.log("FloorPlan: Máquinas cargadas:", machinesData.length);
-        setMachines(machinesData);
-      }
+      if (machinesData) setMachines(machinesData);
 
       const { data: settings } = await supabase
         .from('settings')
@@ -49,17 +47,14 @@ export default function FloorPlan() {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchData();
+    fetchData(); // Intentar cargar de inmediato
 
-      const channel = supabase
-        .channel('floor-updates')
-        .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchData())
-        .on('postgres_changes', { event: '*', table: 'settings' }, () => fetchData())
-        .subscribe();
+    const channel = supabase
+      .channel('floor-updates')
+      .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchData())
+      .subscribe();
 
-      return () => supabase.removeChannel(channel);
-    }
+    return () => supabase.removeChannel(channel);
   }, [user]);
 
   useEffect(() => {
