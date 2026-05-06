@@ -10,16 +10,21 @@ export default function UsersPage() {
   const [currentUser, setCurrentUser] = useState(null);
 
   const fetchUsers = async () => {
-    setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    setCurrentUser(user);
+    try {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('full_name');
-    if (data) setProfiles(data);
-    setLoading(false);
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('full_name');
+      if (data) setProfiles(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
