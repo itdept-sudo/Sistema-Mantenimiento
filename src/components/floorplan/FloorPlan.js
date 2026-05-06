@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { AlertCircle, CheckCircle2, Hammer, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import OrderModal from '@/components/orders/OrderModal';
 
 export default function FloorPlan() {
   const [machines, setMachines] = useState([]);
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [isMappingMode, setIsMappingMode] = useState(false);
   const [mappingMachineId, setMappingMachineId] = useState(null);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 
   // Cargar máquinas desde Supabase
   const fetchMachines = async () => {
@@ -53,28 +55,7 @@ export default function FloorPlan() {
       alert("Error de permisos: Asegúrate de tener el rol de 'manager' en tu perfil de Supabase.");
       console.error(error);
     } else {
-      // Opcional: Feedback visual de éxito
       console.log("Posición guardada");
-    }
-  };
-
-  const handleReportFailure = async () => {
-    if (!selectedMachine || !supabase) return;
-
-    const { error } = await supabase
-      .from('work_orders')
-      .insert({
-        machine_id: selectedMachine.id,
-        description: `Falla reportada desde el plano interactivo.`,
-        priority: 'high',
-        status: 'open'
-      });
-
-    if (error) {
-      alert("Error al crear la orden: " + error.message);
-    } else {
-      alert(`Orden de trabajo creada para: ${selectedMachine.name}`);
-      setSelectedMachine(null);
     }
   };
 
@@ -129,10 +110,8 @@ export default function FloorPlan() {
             cursor: isMappingMode ? 'crosshair' : 'default'
           }}
         >
-          {/* Overlay grid for design */}
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
 
-          {/* Machine Points */}
           {machines.map((machine) => (
             <motion.button
               key={machine.id}
@@ -158,7 +137,6 @@ export default function FloorPlan() {
           ))}
         </div>
 
-        {/* Machine Details Panel (Slide-in) */}
         <AnimatePresence>
           {selectedMachine && (
             <motion.div
@@ -203,7 +181,7 @@ export default function FloorPlan() {
 
                 <div className="pt-6 border-t border-slate-800">
                   <button 
-                    onClick={handleReportFailure}
+                    onClick={() => setIsOrderModalOpen(true)}
                     className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2"
                   >
                     <Hammer className="w-4 h-4" /> Reportar Falla / Crear Orden
@@ -228,6 +206,14 @@ export default function FloorPlan() {
           </div>
         </div>
       )}
+
+      <OrderModal 
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        initialMachineId={selectedMachine?.id}
+        machines={machines}
+        onSuccess={() => alert("Orden de trabajo creada correctamente")}
+      />
     </div>
   );
 }

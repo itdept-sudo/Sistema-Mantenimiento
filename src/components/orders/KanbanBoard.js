@@ -11,6 +11,7 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-react';
+import OrderModal from './OrderModal';
 
 const columns = [
   { id: 'open', name: 'Abiertas', color: 'bg-blue-500' },
@@ -21,7 +22,14 @@ const columns = [
 
 export default function KanbanBoard() {
   const [orders, setOrders] = useState([]);
+  const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+
+  const fetchMachines = async () => {
+    const { data } = await supabase.from('machines').select('id, name');
+    if (data) setMachines(data);
+  };
 
   const fetchOrders = async () => {
     if (!supabase) return;
@@ -41,6 +49,7 @@ export default function KanbanBoard() {
 
   useEffect(() => {
     fetchOrders();
+    fetchMachines();
 
     // Suscribirse a cambios en tiempo real
     const channel = supabase
@@ -69,7 +78,10 @@ export default function KanbanBoard() {
           <h2 className="text-3xl font-bold text-white tracking-tight">Órdenes de Soporte</h2>
           <p className="text-slate-400 mt-1">Gestión de actividades y reparaciones en tiempo real.</p>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/40 flex items-center gap-2 transition-all active:scale-95">
+        <button 
+          onClick={() => setIsOrderModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/40 flex items-center gap-2 transition-all active:scale-95"
+        >
           <Plus className="w-5 h-5" /> Nueva Orden
         </button>
       </div>
@@ -162,6 +174,13 @@ export default function KanbanBoard() {
           </div>
         ))}
       </div>
+
+      <OrderModal 
+        isOpen={isOrderModalOpen}
+        onClose={() => setIsOrderModalOpen(false)}
+        machines={machines}
+        onSuccess={() => fetchOrders()}
+      />
     </div>
   );
 }
