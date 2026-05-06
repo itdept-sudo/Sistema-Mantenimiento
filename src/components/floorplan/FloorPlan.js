@@ -47,11 +47,12 @@ export default function FloorPlan() {
   };
 
   useEffect(() => {
-    fetchData(); // Intentar cargar de inmediato
+    fetchData();
 
     const channel = supabase
       .channel('floor-updates')
       .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchData())
+      .on('postgres_changes', { event: '*', table: 'settings' }, () => fetchData())
       .subscribe();
 
     return () => supabase.removeChannel(channel);
@@ -185,10 +186,25 @@ export default function FloorPlan() {
                 isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
               }`}
             >
-              <MapIcon className="w-4 h-4" />
-              {isMappingMode ? 'Listo' : 'Mapear'}
-            </button>
-          )}
+            <MapIcon className="w-4 h-4" />
+            {isMappingMode ? 'Listo' : 'Mapear'}
+          </button>
+        )}
+      </div>
+    </div>
+
+      <div className="flex flex-wrap gap-6 mb-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800 w-fit">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+          <span className="text-xs text-slate-300 font-medium">Operativa</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+          <span className="text-xs text-slate-300 font-medium">Falla / Paro</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
+          <span className="text-xs text-slate-300 font-medium">Mantenimiento</span>
         </div>
       </div>
 
