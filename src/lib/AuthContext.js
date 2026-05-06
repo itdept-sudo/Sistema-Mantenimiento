@@ -67,7 +67,15 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // 3. Fail-safe: Forzar el fin de la carga tras 3 segundos pase lo que pase
+    const failSafe = setTimeout(() => {
+      setLoading(false);
+    }, 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(failSafe);
+    };
   }, []);
 
   return (

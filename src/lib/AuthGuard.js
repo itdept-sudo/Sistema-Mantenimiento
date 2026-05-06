@@ -21,13 +21,12 @@ export default function AuthGuard({ children }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-950">
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-950 gap-4">
         <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-slate-500 text-sm animate-pulse">Sincronizando sesión...</p>
       </div>
     );
   }
-
-  if (!user && pathname !== '/login') return null;
 
   return <>{children}</>;
 }
