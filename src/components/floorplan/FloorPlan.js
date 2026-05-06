@@ -22,17 +22,15 @@ export default function FloorPlan() {
   const fileInputRef = useRef(null);
 
   const fetchData = async () => {
-    if (!supabase) return;
+    if (!supabase || !user) return;
     
-    // Intentar obtener el usuario actual directamente de la sesión si el context falla
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
-
     try {
-      const { data: machinesData } = await supabase
+      const { data: machinesData, error: mError } = await supabase
         .from('machines')
         .select('*')
         .order('id', { ascending: true });
+      
+      if (mError) throw mError;
       if (machinesData) setMachines(machinesData);
 
       const { data: settings } = await supabase
@@ -186,12 +184,12 @@ export default function FloorPlan() {
                 isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
               }`}
             >
-            <MapIcon className="w-4 h-4" />
-            {isMappingMode ? 'Listo' : 'Mapear'}
-          </button>
-        )}
+              <MapIcon className="w-4 h-4" />
+              {isMappingMode ? 'Listo' : 'Mapear'}
+            </button>
+          )}
+        </div>
       </div>
-    </div>
 
       <div className="flex flex-wrap gap-6 mb-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800 w-fit">
         <div className="flex items-center gap-2">
@@ -251,7 +249,7 @@ export default function FloorPlan() {
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              className="absolute right-0 top-0 bottom-0 w-80 bg-slate-900/95 backdrop-blur-md border-l border-slate-800 p-6 z-20 shadow-2xl"
+              className="absolute right-0 top-0 bottom-0 w-80 bg-slate-900/95 backdrop-blur-md border-l border-slate-800 p-6 z-20 shadow-2xl overflow-y-auto"
             >
               <div className="flex justify-between items-start mb-6 text-white">
                 <div>
@@ -262,6 +260,31 @@ export default function FloorPlan() {
                   }`}>
                     {selectedMachine.status}
                   </span>
+                  
+                  {isAdmin && (
+                    <div className="mt-4 space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Estado Manual</label>
+                      <select 
+                        value={selectedMachine.status}
+                        onChange={async (e) => {
+                          const newStatus = e.target.value;
+                          const { error } = await supabase
+                            .from('machines')
+                            .update({ status: newStatus })
+                            .eq('id', selectedMachine.id);
+                          if (!error) {
+                            setSelectedMachine({ ...selectedMachine, status: newStatus });
+                            fetchData();
+                          }
+                        }}
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="operational">Operativa (Verde)</option>
+                        <option value="failure">Falla / Paro (Rojo)</option>
+                        <option value="maintenance">Mantenimiento (Amarillo)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => setSelectedMachine(null)}>✕</button>
               </div>
