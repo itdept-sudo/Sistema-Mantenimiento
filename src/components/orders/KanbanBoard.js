@@ -128,7 +128,7 @@ export default function KanbanBoard() {
                 <div key={order.id} className="p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all cursor-pointer group">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded uppercase tracking-wider">
-                      WO-{order.id.slice(0, 4)}
+                      ID: {String(order.id).substring(0, 5)}
                     </span>
                     {order.priority === 'urgent' && <AlertCircle className="w-4 h-4 text-red-500" />}
                   </div>
@@ -141,7 +141,7 @@ export default function KanbanBoard() {
                       <span className="text-xs font-medium">{order.profiles?.full_name || 'Sin asignar'}</span>
                     </div>
                     <div className="text-slate-500 text-[10px]">
-                      {new Date(order.created_at).toLocaleDateString()}
+                      {order.created_at ? new Date(order.created_at).toLocaleDateString() : ''}
                     </div>
                   </div>
 
