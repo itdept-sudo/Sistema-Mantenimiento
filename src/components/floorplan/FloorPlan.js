@@ -5,11 +5,10 @@ import { supabase } from '@/lib/supabase';
 import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Upload, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderModal from '@/components/orders/OrderModal';
-
 import { useAuth } from '@/lib/AuthContext';
 
 export default function FloorPlan() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor';
   
   const [machines, setMachines] = useState([]);
@@ -25,31 +24,37 @@ export default function FloorPlan() {
   const fetchData = async () => {
     if (!supabase) return;
     
-    const { data: machinesData } = await supabase
-      .from('machines')
-      .select('*')
-      .order('id', { ascending: true });
-    if (machinesData) setMachines(machinesData);
+    try {
+      const { data: machinesData } = await supabase
+        .from('machines')
+        .select('*')
+        .order('id', { ascending: true });
+      if (machinesData) setMachines(machinesData);
 
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('*')
-      .eq('key', 'floor_plan_image')
-      .single();
-    if (settings) setPlanImage(settings.value);
+      const { data: settings } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('key', 'floor_plan_image')
+        .single();
+      if (settings) setPlanImage(settings.value);
+    } catch (error) {
+      console.error("Error fetching floor plan data:", error);
+    }
   };
 
   useEffect(() => {
-    fetchData();
+    if (user) {
+      fetchData();
 
-    const channel = supabase
-      .channel('floor-updates')
-      .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchData())
-      .on('postgres_changes', { event: '*', table: 'settings' }, () => fetchData())
-      .subscribe();
+      const channel = supabase
+        .channel('floor-updates')
+        .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchData())
+        .on('postgres_changes', { event: '*', table: 'settings' }, () => fetchData())
+        .subscribe();
 
-    return () => supabase.removeChannel(channel);
-  }, []);
+      return () => supabase.removeChannel(channel);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (selectedMachine && supabase) {
@@ -76,19 +81,16 @@ export default function FloorPlan() {
     const filePath = `${fileName}`;
 
     try {
-      // 1. Subir al Storage (Asegúrate de que exista el bucket 'floor-plans')
       const { error: uploadError } = await supabase.storage
         .from('floor-plans')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 2. Obtener URL Pública
       const { data: { publicUrl } } = supabase.storage
         .from('floor-plans')
         .getPublicUrl(filePath);
 
-      // 3. Actualizar Settings
       const { error: settingsError } = await supabase
         .from('settings')
         .upsert({ key: 'floor_plan_image', value: publicUrl });
@@ -98,7 +100,7 @@ export default function FloorPlan() {
       setPlanImage(publicUrl);
       alert("Plano actualizado correctamente.");
     } catch (error) {
-      alert("Error al subir el archivo. Asegúrate de que el bucket 'floor-plans' sea público en Supabase.");
+      alert("Error al subir el archivo.");
       console.error(error);
     } finally {
       setIsUploading(false);
@@ -133,13 +135,7 @@ export default function FloorPlan() {
 
   return (
     <div className="p-8 h-full flex flex-col">
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        className="hidden" 
-        accept="image/*" 
-        onChange={handleFileUpload}
-      />
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
 
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -153,7 +149,6 @@ export default function FloorPlan() {
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
               className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 flex items-center gap-2"
-              title="Cargar nuevo archivo de plano"
             >
               {isUploading ? (
                 <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -196,9 +191,9 @@ export default function FloorPlan() {
         </div>
       </div>
 
-      <div className="flex-1 relative bg-slate-950 rounded-3xl border border-slate-800 overflow-auto group p-4">
+      <div className="flex-1 relative bg-slate-950 rounded-3xl border border-slate-800 overflow-auto p-4">
         <div 
-          className="relative mx-auto bg-slate-900 shadow-2xl transition-all duration-700 overflow-hidden rounded-xl"
+          className="relative mx-auto bg-slate-900 shadow-2xl overflow-hidden rounded-xl"
           onClick={handleFloorClick}
           style={{ 
             backgroundImage: `url('${planImage}')`,
@@ -210,8 +205,6 @@ export default function FloorPlan() {
             cursor: isMappingMode && mappingMachineId ? 'crosshair' : 'default'
           }}
         >
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-
           {machines.filter(m => m.x_pos > 0).map((machine) => (
             <motion.button
               key={machine.id}
@@ -229,9 +222,7 @@ export default function FloorPlan() {
                 machine.status === 'failure' ? 'bg-red-500 animate-pulse' : 
                 machine.status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500'
               }`}>
-                {machine.status === 'failure' && (
-                  <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>
-                )}
+                {machine.status === 'failure' && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>}
               </div>
             </motion.button>
           ))}
@@ -245,9 +236,9 @@ export default function FloorPlan() {
               exit={{ x: '100%' }}
               className="absolute right-0 top-0 bottom-0 w-80 bg-slate-900/95 backdrop-blur-md border-l border-slate-800 p-6 z-20 shadow-2xl"
             >
-              <div className="flex justify-between items-start mb-6">
+              <div className="flex justify-between items-start mb-6 text-white">
                 <div>
-                  <h3 className="text-xl font-bold text-white">{selectedMachine.name}</h3>
+                  <h3 className="text-xl font-bold">{selectedMachine.name}</h3>
                   <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded mt-2 inline-block ${
                     selectedMachine.status === 'failure' ? 'bg-red-500/20 text-red-400' : 
                     selectedMachine.status === 'maintenance' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'
@@ -255,7 +246,7 @@ export default function FloorPlan() {
                     {selectedMachine.status}
                   </span>
                 </div>
-                <button onClick={() => setSelectedMachine(null)} className="text-slate-500 hover:text-white">✕</button>
+                <button onClick={() => setSelectedMachine(null)}>✕</button>
               </div>
 
               <div className="space-y-6">
@@ -263,27 +254,24 @@ export default function FloorPlan() {
                   <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Historial</h4>
                   <div className="space-y-4">
                     {machineOrders.length > 0 ? machineOrders.map((order) => (
-                      <div key={order.id} className="flex gap-3 text-sm border-b border-slate-800/50 pb-3 last:border-0">
+                      <div key={order.id} className="flex gap-3 text-sm border-b border-slate-800/50 pb-3 last:border-0 text-slate-300">
                         <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
                           order.status === 'open' ? 'bg-blue-500' :
-                          order.status === 'in_progress' ? 'bg-orange-500' :
-                          'bg-emerald-500'
+                          order.status === 'in_progress' ? 'bg-orange-500' : 'bg-emerald-500'
                         }`}></div>
                         <div>
-                          <p className="text-slate-300 line-clamp-2">{order.description}</p>
+                          <p className="line-clamp-2">{order.description}</p>
                           <p className="text-[10px] text-slate-500 mt-1">{new Date(order.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
-                    )) : (
-                      <p className="text-xs text-slate-600 italic">Sin historial.</p>
-                    )}
+                    )) : <p className="text-xs text-slate-600 italic">Sin historial.</p>}
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-slate-800 space-y-3">
                   <button 
                     onClick={() => setIsOrderModalOpen(true)}
-                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                   >
                     <Hammer className="w-4 h-4" /> Reportar Falla
                   </button>
@@ -307,7 +295,7 @@ export default function FloorPlan() {
         onClose={() => setIsOrderModalOpen(false)}
         initialMachineId={selectedMachine?.id}
         machines={machines}
-        onSuccess={() => alert("Orden creada")}
+        onSuccess={() => { fetchData(); setSelectedMachine(null); }}
       />
     </div>
   );

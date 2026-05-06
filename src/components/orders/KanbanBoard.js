@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
 import { 
   MoreVertical, 
   Plus, 
@@ -21,6 +22,7 @@ const columns = [
 ];
 
 export default function KanbanBoard() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ export default function KanbanBoard() {
   const fetchOrders = async () => {
     if (!supabase) return;
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('work_orders')
       .select(`
         *,
@@ -48,19 +50,18 @@ export default function KanbanBoard() {
   };
 
   useEffect(() => {
-    fetchOrders();
-    fetchMachines();
+    if (user) {
+      fetchOrders();
+      fetchMachines();
 
-    // Suscribirse a cambios en tiempo real
-    const channel = supabase
-      .channel('orders-updates')
-      .on('postgres_changes', { event: '*', table: 'work_orders' }, () => {
-        fetchOrders();
-      })
-      .subscribe();
+      const channel = supabase
+        .channel('orders-updates')
+        .on('postgres_changes', { event: '*', table: 'work_orders' }, () => fetchOrders())
+        .subscribe();
 
-    return () => supabase.removeChannel(channel);
-  }, []);
+      return () => supabase.removeChannel(channel);
+    }
+  }, [user]);
 
   const handleUpdateStatus = async (orderId, newStatus) => {
     const { error } = await supabase
@@ -80,13 +81,12 @@ export default function KanbanBoard() {
         </div>
         <button 
           onClick={() => setIsOrderModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-900/40 flex items-center gap-2 transition-all active:scale-95"
+          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
         >
           <Plus className="w-5 h-5" /> Nueva Orden
         </button>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-4 mb-8">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
@@ -101,14 +101,13 @@ export default function KanbanBoard() {
         </button>
       </div>
 
-      {/* Columns */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-x-auto pb-4">
         {columns.map((column) => (
           <div key={column.id} className="flex flex-col gap-4 w-full min-w-[280px]">
             <div className="flex justify-between items-center px-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 text-slate-300">
                 <span className={`w-2 h-2 rounded-full ${column.color}`}></span>
-                <h3 className="font-bold text-slate-300 text-sm uppercase tracking-wider">{column.name}</h3>
+                <h3 className="font-bold text-sm uppercase tracking-wider">{column.name}</h3>
                 <span className="text-xs bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full">
                   {orders.filter(o => o.status === column.id).length}
                 </span>
@@ -117,59 +116,39 @@ export default function KanbanBoard() {
 
             <div className="flex-1 bg-slate-900/30 border border-slate-800/50 rounded-2xl p-4 space-y-4">
               {orders.filter(o => o.status === column.id).map((order) => (
-                <div 
-                  key={order.id} 
-                  className="p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all cursor-pointer group"
-                >
+                <div key={order.id} className="p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all cursor-pointer group">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded uppercase tracking-wider">
-                      WO-{order.id}
+                      WO-{order.id.slice(0, 4)}
                     </span>
-                    {order.priority === 'urgent' && (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )}
+                    {order.priority === 'urgent' && <AlertCircle className="w-4 h-4 text-red-500" />}
                   </div>
-                  <h4 className="text-white font-bold mb-1">{order.machines?.name || 'Máquina desconocida'}</h4>
-                  <p className="text-slate-500 text-sm line-clamp-2 mb-4 leading-relaxed">
-                    {order.description}
-                  </p>
+                  <h4 className="text-white font-bold mb-1">{order.machines?.name || 'Máquina'}</h4>
+                  <p className="text-slate-500 text-sm line-clamp-2 mb-4 leading-relaxed">{order.description}</p>
                   
                   <div className="flex justify-between items-center pt-4 border-t border-slate-800">
                     <div className="flex items-center gap-2 text-slate-400">
                       <User className="w-3.5 h-3.5" />
                       <span className="text-xs font-medium">{order.profiles?.full_name || 'Sin asignar'}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-slate-500">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span className="text-[10px]">
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </span>
+                    <div className="text-slate-500 text-[10px]">
+                      {new Date(order.created_at).toLocaleDateString()}
                     </div>
                   </div>
 
-                  {/* Status Toggle (Quick change) */}
-                  <div className="mt-4 flex gap-1">
+                  <div className="mt-4 flex gap-1 flex-wrap">
                     {columns.filter(c => c.id !== order.status).map(c => (
                       <button
                         key={c.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUpdateStatus(order.id, c.id);
-                        }}
-                        className="text-[9px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded transition-colors"
+                        onClick={(e) => { e.stopPropagation(); handleUpdateStatus(order.id, c.id); }}
+                        className="text-[8px] px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded transition-colors"
                       >
-                        Mover a {c.name}
+                        {c.name}
                       </button>
                     ))}
                   </div>
                 </div>
               ))}
-              
-              {orders.filter(o => o.status === column.id).length === 0 && (
-                <div className="h-24 border-2 border-dashed border-slate-800 rounded-xl flex items-center justify-center text-slate-600 text-sm italic">
-                  No hay órdenes
-                </div>
-              )}
             </div>
           </div>
         ))}
