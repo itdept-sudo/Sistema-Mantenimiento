@@ -68,10 +68,10 @@ export default function MyTasksPage() {
                 }`}>
                   {task.priority}
                 </span>
-                <span className="text-[10px] text-slate-500 font-mono">#{task.id.slice(0, 8)}</span>
+                <span className="text-[10px] text-slate-500 font-mono">ID: {String(task.id).substring(0, 8)}</span>
               </div>
 
-              <h4 className="text-lg font-bold text-white mb-1">{task.machine?.name}</h4>
+              <h4 className="text-lg font-bold text-white mb-1">{task.machine?.name || 'Máquina'}</h4>
               <p className="text-sm text-slate-400 line-clamp-2 mb-6">{task.description}</p>
 
               <div className="space-y-3">
