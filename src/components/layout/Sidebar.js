@@ -31,9 +31,11 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { profile, logout } = useAuth();
+  const { profile, logout, loading } = useAuth();
   
-  // Si no hay perfil aún, asumimos técnico para que la UI no se rompa
+  // Debug para ver qué está pasando (puedes verlo en F12)
+  console.log("Sidebar Debug - Role:", profile?.role, "Loading:", loading);
+
   const userRole = profile?.role || 'technician';
 
   const filteredItems = navItems.filter(item => {
