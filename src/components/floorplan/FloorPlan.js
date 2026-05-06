@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Image as ImageIcon } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Image as ImageIcon, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderModal from '@/components/orders/OrderModal';
 
@@ -13,25 +13,34 @@ export default function FloorPlan() {
   const [mappingMachineId, setMappingMachineId] = useState(null);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [machineOrders, setMachineOrders] = useState([]);
-  
-  // Por ahora mantenemos la imagen base, pero permitiremos cambiarla
   const [planImage, setPlanImage] = useState('/floorplan.png');
 
-  const fetchMachines = async () => {
+  const fetchData = async () => {
     if (!supabase) return;
-    const { data } = await supabase
+    
+    // Cargar Máquinas
+    const { data: machinesData } = await supabase
       .from('machines')
       .select('*')
       .order('id', { ascending: true });
-    if (data) setMachines(data);
+    if (machinesData) setMachines(machinesData);
+
+    // Cargar Configuración de Imagen
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('key', 'floor_plan_image')
+      .single();
+    if (settings) setPlanImage(settings.value);
   };
 
   useEffect(() => {
-    fetchMachines();
+    fetchData();
 
     const channel = supabase
       .channel('floor-updates')
-      .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchMachines())
+      .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchData())
+      .on('postgres_changes', { event: '*', table: 'settings' }, () => fetchData())
       .subscribe();
 
     return () => supabase.removeChannel(channel);
@@ -52,6 +61,18 @@ export default function FloorPlan() {
     }
   }, [selectedMachine]);
 
+  const handleUpdateImage = async () => {
+    const newUrl = prompt("Pega la URL de la nueva imagen o nombre del archivo en public (ej: /nuevo-plano.png):", planImage);
+    if (newUrl && newUrl !== planImage) {
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ key: 'floor_plan_image', value: newUrl });
+      
+      if (error) alert("Error al guardar la imagen.");
+      else setPlanImage(newUrl);
+    }
+  };
+
   const handleFloorClick = async (e) => {
     if (!isMappingMode || !mappingMachineId) return;
 
@@ -64,15 +85,11 @@ export default function FloorPlan() {
       .update({ x_pos: x, y_pos: y })
       .eq('id', mappingMachineId);
 
-    if (error) {
-      alert("Error al guardar posición.");
-    } else {
-      setMappingMachineId(null);
-    }
+    if (!error) setMappingMachineId(null);
   };
 
   const handleResetPosition = async (machineId) => {
-    if (!confirm("¿Deseas quitar esta máquina del plano?")) return;
+    if (!confirm("¿Quitar esta máquina del plano?")) return;
     const { error } = await supabase
       .from('machines')
       .update({ x_pos: 0, y_pos: 0 })
@@ -80,7 +97,6 @@ export default function FloorPlan() {
     if (!error) setSelectedMachine(null);
   };
 
-  // Máquinas que NO están en el plano (x_pos = 0)
   const unmappedMachines = machines.filter(m => !m.x_pos || m.x_pos === 0);
 
   return (
@@ -88,17 +104,25 @@ export default function FloorPlan() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h2 className="text-3xl font-bold text-white tracking-tight">Plano Interactivo</h2>
-          <p className="text-slate-400 mt-1">Control visual de maquinaria en tiempo real.</p>
+          <p className="text-slate-400 mt-1">Gestión visual de planta en tiempo real.</p>
         </div>
 
         <div className="flex gap-4 items-center">
+          <button 
+            onClick={handleUpdateImage}
+            className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700"
+            title="Cambiar imagen de fondo"
+          >
+            <ImageIcon className="w-5 h-5" />
+          </button>
+
           {isMappingMode && (
             <select 
               className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-700"
               onChange={(e) => setMappingMachineId(e.target.value)}
               value={mappingMachineId || ''}
             >
-              <option value="">Selecciona máquina para ubicar...</option>
+              <option value="">Selecciona máquina...</option>
               {unmappedMachines.map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
@@ -111,7 +135,7 @@ export default function FloorPlan() {
               if (isMappingMode) setMappingMachineId(null);
             }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-              isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
+              isMappingMode ? 'bg-orange-500 text-white shadow-lg shadow-orange-900/40' : 'bg-slate-800 text-slate-300'
             }`}
           >
             <MapIcon className="w-4 h-4" />
@@ -120,9 +144,9 @@ export default function FloorPlan() {
         </div>
       </div>
 
-      <div className="flex-1 relative bg-slate-950 rounded-3xl border border-slate-800 overflow-auto group">
+      <div className="flex-1 relative bg-slate-950 rounded-3xl border border-slate-800 overflow-auto group p-4">
         <div 
-          className="relative mx-auto bg-slate-900 shadow-2xl transition-all duration-700 overflow-hidden"
+          className="relative mx-auto bg-slate-900 shadow-2xl transition-all duration-700 overflow-hidden rounded-xl"
           onClick={handleFloorClick}
           style={{ 
             backgroundImage: `url('${planImage}')`,
@@ -136,7 +160,6 @@ export default function FloorPlan() {
         >
           <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
 
-          {/* Mostrar TODAS las máquinas que tengan coordenadas > 0 */}
           {machines.filter(m => m.x_pos > 0).map((machine) => (
             <motion.button
               key={machine.id}
