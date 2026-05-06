@@ -72,13 +72,25 @@ export default function KanbanBoard() {
     }
   }, [user]);
 
-  const handleUpdateStatus = async (orderId, newStatus) => {
+  const handleUpdateStatus = async (orderId, newStatus, machineId) => {
     const { error } = await supabase
       .from('work_orders')
       .update({ status: newStatus })
       .eq('id', orderId);
     
+    if (!error && machineId) {
+      let newMachineStatus = 'operational';
+      if (newStatus === 'in_progress') newMachineStatus = 'maintenance';
+      if (newStatus === 'open') newMachineStatus = 'failure';
+
+      await supabase
+        .from('machines')
+        .update({ status: newMachineStatus })
+        .eq('id', machineId);
+    }
+
     if (error) alert("Error al actualizar: " + error.message);
+    else fetchOrders();
   };
 
   return (
@@ -149,7 +161,7 @@ export default function KanbanBoard() {
                     {columns.filter(c => c.id !== order.status).map(c => (
                       <button
                         key={c.id}
-                        onClick={(e) => { e.stopPropagation(); handleUpdateStatus(order.id, c.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleUpdateStatus(order.id, c.id, order.machine_id); }}
                         className="text-[8px] px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded transition-colors"
                       >
                         {c.name}

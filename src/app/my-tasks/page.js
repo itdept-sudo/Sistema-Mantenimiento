@@ -35,6 +35,31 @@ export default function MyTasksPage() {
     fetchMyTasks();
   }, [user]);
 
+  const updateTaskStatus = async (taskId, newStatus, machineId) => {
+    try {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+
+      if (!error && machineId) {
+        // Sincronizar el color del LED
+        let newMachineStatus = 'operational'; // Verde por defecto
+        if (newStatus === 'in_progress') newMachineStatus = 'maintenance'; // Amarillo
+        if (newStatus === 'open') newMachineStatus = 'failure'; // Rojo
+
+        await supabase
+          .from('machines')
+          .update({ status: newMachineStatus })
+          .eq('id', machineId);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      fetchMyTasks();
+    }
+  };
+
   if (loading && tasks.length === 0) return (
     <div className="p-8 flex justify-center">
       <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -77,7 +102,7 @@ export default function MyTasksPage() {
               <div className="space-y-3">
                 {task.status === 'open' && (
                   <button 
-                    onClick={() => updateTaskStatus(task.id, 'in_progress')}
+                    onClick={() => updateTaskStatus(task.id, 'in_progress', task.machine_id)}
                     className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                   >
                     <Clock className="w-4 h-4" /> Iniciar Reparación
@@ -85,7 +110,7 @@ export default function MyTasksPage() {
                 )}
                 {task.status === 'in_progress' && (
                   <button 
-                    onClick={() => updateTaskStatus(task.id, 'resolved')}
+                    onClick={() => updateTaskStatus(task.id, 'resolved', task.machine_id)}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4" /> Marcar como Resuelta
