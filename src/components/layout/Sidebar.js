@@ -23,7 +23,8 @@ function cn(...inputs) {
 const navItems = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
   { name: 'Plano Planta', href: '/floor-plan', icon: Map, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
-  { name: 'Órdenes', href: '/orders', icon: ClipboardList, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
+  { name: 'Mis Tareas', href: '/my-tasks', icon: ClipboardList, roles: ['technician', 'supervisor', 'admin'] },
+  { name: 'Órdenes', href: '/orders', icon: ClipboardList, roles: ['admin', 'supervisor', 'inventory'] },
   { name: 'Inventario', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'inventory'] },
   { name: 'Calendario', href: '/calendar', icon: Calendar, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
   { name: 'Usuarios', href: '/users', icon: Users, roles: ['admin'] },
