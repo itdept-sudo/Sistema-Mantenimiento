@@ -95,38 +95,48 @@ export default function FloorPlan() {
         </div>
       </div>
 
-      <div className="flex-1 relative bg-slate-900/50 rounded-3xl border border-slate-800 overflow-hidden group">
-        {/* Placeholder for the image */}
+      <div className="flex-1 relative bg-slate-950 rounded-3xl border border-slate-800 overflow-auto group">
         <div 
-          className="absolute inset-0 bg-[url('/floorplan.png')] bg-cover bg-center opacity-40 grayscale group-hover:grayscale-0 transition-all duration-700"
+          className="relative mx-auto bg-slate-900 shadow-2xl transition-all duration-700 overflow-hidden"
           onClick={handleFloorClick}
-          style={{ cursor: isMappingMode ? 'crosshair' : 'default' }}
+          style={{ 
+            backgroundImage: "url('/floorplan.png')",
+            backgroundSize: '100% 100%',
+            backgroundRepeat: 'no-repeat',
+            width: '100%',
+            minWidth: '1000px', // Mantiene una base para que no se amontonen
+            aspectRatio: '1440/900', // Proporción común de planos
+            cursor: isMappingMode ? 'crosshair' : 'default'
+          }}
         >
           {/* Overlay grid for design */}
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
-        </div>
+          <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
 
-        {/* Machine Points */}
-        {machines.map((machine) => (
-          <motion.button
-            key={machine.id}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            whileHover={{ scale: 1.2 }}
-            onClick={() => setSelectedMachine(machine)}
-            className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
-            style={{ left: `${machine.x_pos}%`, top: `${machine.y_pos}%` }}
-          >
-            <div className={`relative w-6 h-6 rounded-full border-2 border-white shadow-lg ${
-              machine.status === 'failure' ? 'bg-red-500 animate-pulse' : 
-              machine.status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500'
-            }`}>
-              {machine.status === 'failure' && (
-                <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>
-              )}
-            </div>
-          </motion.button>
-        ))}
+          {/* Machine Points */}
+          {machines.map((machine) => (
+            <motion.button
+              key={machine.id}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              whileHover={{ scale: 1.2 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedMachine(machine);
+              }}
+              className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
+              style={{ left: `${machine.x_pos}%`, top: `${machine.y_pos}%` }}
+            >
+              <div className={`relative w-6 h-6 rounded-full border-2 border-white shadow-lg ${
+                machine.status === 'failure' ? 'bg-red-500 animate-pulse' : 
+                machine.status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500'
+              }`}>
+                {machine.status === 'failure' && (
+                  <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>
+                )}
+              </div>
+            </motion.button>
+          ))}
+        </div>
 
         {/* Machine Details Panel (Slide-in) */}
         <AnimatePresence>
