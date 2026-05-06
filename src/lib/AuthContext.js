@@ -58,10 +58,11 @@ export const AuthProvider = ({ children }) => {
 
     checkSession();
 
-    // 2. Escuchar cambios de estado
+    // 2. Escuchar cambios de estado de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
+      setLoading(false);
       
       if (currentUser) {
         const { data } = await supabase
@@ -73,19 +74,29 @@ export const AuthProvider = ({ children }) => {
       } else {
         setProfile(null);
       }
-      setLoading(false);
     });
 
-    // 3. Fail-safe: Forzar el fin de la carga tras 3 segundos pase lo que pase
+    // 3. Escuchar cambios en el PERFIL (Tiempo real para roles)
+    const profileSubscription = supabase
+      .channel('profile-changes')
+      .on('postgres_changes', { event: 'UPDATE', table: 'profiles' }, (payload) => {
+        if (payload.new.id === user?.id) {
+          setProfile(payload.new);
+        }
+      })
+      .subscribe();
+
+    // 4. Fail-safe: Forzar el fin de la carga tras 3 segundos pase lo que pase
     const failSafe = setTimeout(() => {
       setLoading(false);
     }, 3000);
 
     return () => {
       subscription.unsubscribe();
+      supabase.removeChannel(profileSubscription);
       clearTimeout(failSafe);
     };
-  }, []);
+  }, [user?.id]);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, loginWithGoogle, logout }}>

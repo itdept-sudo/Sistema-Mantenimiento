@@ -40,12 +40,20 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase
+    const { error: orderError } = await supabase
       .from('work_orders')
       .insert([formData]);
 
-    if (error) {
-      alert("Error al crear la orden: " + error.message);
+    if (!orderError && formData.maintenance_type === 'corrective') {
+      // Forzar que la máquina se ponga en rojo
+      await supabase
+        .from('machines')
+        .update({ status: 'failure' })
+        .eq('id', formData.machine_id);
+    }
+
+    if (orderError) {
+      alert("Error al crear la orden: " + orderError.message);
     } else {
       onSuccess?.();
       onClose();
