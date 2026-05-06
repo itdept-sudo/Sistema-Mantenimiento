@@ -26,19 +26,23 @@ export const AuthProvider = ({ children }) => {
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      try {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        
-        if (currentUser) {
-          await fetchProfile(currentUser.id);
-        } else {
-          setProfile(null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      setLoading(false); // Liberamos la carga principal de inmediato
+      
+      if (currentUser) {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+          setProfile(data);
+        } catch (error) {
+          console.error("Profile load background error:", error);
         }
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-      } finally {
-        setLoading(false);
+      } else {
+        setProfile(null);
       }
     });
 

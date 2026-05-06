@@ -32,9 +32,14 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { profile, logout } = useAuth();
+  
+  // Si no hay perfil aún, asumimos técnico para que la UI no se rompa
   const userRole = profile?.role || 'technician';
 
-  const filteredItems = navItems.filter(item => item.roles.includes(userRole));
+  const filteredItems = navItems.filter(item => {
+    if (!item.roles) return true;
+    return item.roles.includes(userRole);
+  });
 
   return (
     <div className="flex flex-col h-screen w-64 bg-slate-900 text-white border-r border-slate-800">
