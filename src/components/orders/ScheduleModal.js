@@ -5,48 +5,72 @@ import { supabase } from '@/lib/supabase';
 import { X, Calendar, Clock, User, Box, ListChecks } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function ScheduleModal({ isOpen, onClose, machines, onSuccess }) {
+export default function ScheduleModal({ isOpen, onClose, machines, onSuccess, editData = null }) {
   const [loading, setLoading] = useState(false);
   const [technicians, setTechnicians] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    machine_ids: [], // Multi-selección
+    machine_ids: [],
     technician_id: '',
     frequency: 'monthly',
     start_date: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
-    const fetchTechnicians = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .eq('role', 'technician');
-      if (data) setTechnicians(data);
+    if (editData) {
+      setFormData({
+        title: editData.title,
+        description: editData.task_description,
+        machine_ids: editData.machine_ids || [],
+        technician_id: editData.technician_id || '',
+        frequency: editData.frequency || 'monthly',
+        start_date: new Date(editData.next_due).toISOString().split('T')[0]
+      });
+    } else {
+      setFormData({
+        title: '', description: '', machine_ids: [], technician_id: '', frequency: 'monthly',
+        start_date: new Date().toISOString().split('T')[0]
+      });
+    }
+  }, [editData, isOpen]);
+
+  useEffect(() => {
+    const fetchAuxData = async () => {
+      const [tRes, tempRes] = await Promise.all([
+        supabase.from('profiles').select('id, full_name').eq('role', 'technician'),
+        supabase.from('maintenance_templates').select('*')
+      ]);
+      if (tRes.data) setTechnicians(tRes.data);
+      if (tempRes.data) setTemplates(tempRes.data);
     };
-    if (isOpen) fetchTechnicians();
+    if (isOpen) fetchAuxData();
   }, [isOpen]);
+
+  const handleTemplateChange = (templateId) => {
+    const template = templates.find(t => t.id === parseInt(templateId));
+    if (template) {
+      setFormData(prev => ({
+        ...prev,
+        title: template.name,
+        description: template.description,
+        frequency: template.default_frequency || prev.frequency
+      }));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Calculamos los días del intervalo
-      const intervals = {
-        daily: 1,
-        weekly: 7,
-        monthly: 30,
-        bimonthly: 60,
-        annually: 365
-      };
+      const intervals = { daily: 1, weekly: 7, monthly: 30, bimonthly: 60, annually: 365 };
 
-      // Creamos un solo registro con el array de máquinas
       const schedule = {
         title: formData.title,
         task_description: formData.description,
-        machine_ids: formData.machine_ids.map(id => parseInt(id)),
+        machine_ids: formData.machine_ids,
         technician_id: formData.technician_id || null,
         frequency: formData.frequency,
         interval_days: intervals[formData.frequency],
@@ -54,17 +78,25 @@ export default function ScheduleModal({ isOpen, onClose, machines, onSuccess }) 
         is_active: true
       };
 
-      const { error } = await supabase
-        .from('maintenance_schedules')
-        .insert([schedule]);
+      let error;
+      if (editData) {
+        const { error: updateError } = await supabase
+          .from('maintenance_schedules')
+          .update(schedule)
+          .eq('id', editData.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('maintenance_schedules')
+          .insert([schedule]);
+        error = insertError;
+      }
 
       if (error) throw error;
-
-      alert(`¡Éxito! Actividad programada correctamente.`);
       onSuccess?.();
       onClose();
     } catch (error) {
-      alert("Error al programar: " + error.message);
+      alert("Error: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -94,8 +126,8 @@ export default function ScheduleModal({ isOpen, onClose, machines, onSuccess }) 
               <Calendar className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">Programar Preventivo</h3>
-              <p className="text-xs text-slate-500">Automatiza la creación de órdenes.</p>
+              <h3 className="text-xl font-bold text-white">{editData ? 'Editar Actividad' : 'Programar Preventivo'}</h3>
+              <p className="text-xs text-slate-500">{editData ? 'Ajusta los parámetros de la programación.' : 'Automatiza la creación de órdenes.'}</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
@@ -104,8 +136,22 @@ export default function ScheduleModal({ isOpen, onClose, machines, onSuccess }) 
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto">
+          {!editData && (
+            <div className="bg-blue-600/5 border border-blue-500/20 p-4 rounded-2xl">
+              <label className="block text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-2">Cargar desde Plantilla (Opcional)</label>
+              <select 
+                onChange={(e) => handleTemplateChange(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500"
+              >
+                <option value="">-- Selecciona una actividad predefinida --</option>
+                {templates.map(t => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Título de la actividad */}
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nombre de la Actividad</label>
               <input 

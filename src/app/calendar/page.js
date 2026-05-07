@@ -125,7 +125,7 @@ export default function CalendarPage() {
 
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => setIsScheduleModalOpen(true)}
+            onClick={() => { setSelectedActivity(null); setIsScheduleModalOpen(true); }}
             className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
           >
             <Plus className="w-5 h-5" /> Programar Actividad
@@ -135,29 +135,32 @@ export default function CalendarPage() {
             <button onClick={() => setView('month')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'month' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Mes</button>
             <button onClick={() => setView('week')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'week' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Semana</button>
             <button onClick={() => setView('day')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'day' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Día</button>
+            <button onClick={() => setView('manage')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'manage' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Gestionar</button>
           </div>
         </div>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ChevronLeft className="w-6 h-6" /></button>
-          <h3 className="text-xl font-bold text-white min-w-[200px] text-center capitalize">
-            {currentDate.toLocaleDateString('es-MX', { month: 'long', year: 'numeric', day: view === 'month' ? undefined : 'numeric' })}
-          </h3>
-          <button onClick={() => navigateDate(1)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ChevronRight className="w-6 h-6" /></button>
-          <button onClick={() => setCurrentDate(new Date())} className="ml-4 text-xs font-bold text-blue-500 hover:underline">Hoy</button>
-        </div>
+      {/* Toolbar - Ocultar si estamos en gestión */}
+      {view !== 'manage' && (
+        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ChevronLeft className="w-6 h-6" /></button>
+            <h3 className="text-xl font-bold text-white min-w-[200px] text-center capitalize">
+              {currentDate.toLocaleDateString('es-MX', { month: 'long', year: 'numeric', day: view === 'month' ? undefined : 'numeric' })}
+            </h3>
+            <button onClick={() => navigateDate(1)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ChevronRight className="w-6 h-6" /></button>
+            <button onClick={() => setCurrentDate(new Date())} className="ml-4 text-xs font-bold text-blue-500 hover:underline">Hoy</button>
+          </div>
 
-        <div className="flex items-center gap-2 bg-slate-950 px-4 py-2 rounded-xl border border-slate-800">
-          <User className="w-4 h-4 text-slate-500" />
-          <select value={selectedTech} onChange={(e) => setSelectedTech(e.target.value)} className="bg-transparent text-sm text-white focus:outline-none min-w-[150px]">
-            <option value="all">Todos los Técnicos</option>
-            {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-          </select>
+          <div className="flex items-center gap-2 bg-slate-950 px-4 py-2 rounded-xl border border-slate-800">
+            <User className="w-4 h-4 text-slate-500" />
+            <select value={selectedTech} onChange={(e) => setSelectedTech(e.target.value)} className="bg-transparent text-sm text-white focus:outline-none min-w-[150px]">
+              <option value="all">Todos los Técnicos</option>
+              {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+            </select>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Grid */}
       <div className="flex-1 overflow-auto bg-slate-900/30 rounded-3xl border border-slate-800 p-2 relative">
@@ -271,8 +274,9 @@ export default function CalendarPage() {
       {/* Modal de Programación */}
       <ScheduleModal 
         isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
+        onClose={() => { setIsScheduleModalOpen(false); setSelectedActivity(null); }}
         machines={machines}
+        editData={selectedActivity}
         onSuccess={() => {
           fetchData();
         }}
