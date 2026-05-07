@@ -18,20 +18,38 @@ export default function MyTasksPage() {
 
   const fetchMyTasks = async () => {
     if (!supabase) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
+    
+    // Prioridad 1: Usar el usuario del contexto si ya está disponible
+    let currentUserId = user?.id;
+
+    // Prioridad 2: Si no hay usuario en el contexto, buscar la sesión directamente
+    if (!currentUserId) {
+      const { data: { session } } = await supabase.auth.getSession();
+      currentUserId = session?.user?.id;
+    }
+
+    if (!currentUserId) {
+      console.log("MyTasks: Esperando sesión de usuario...");
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     try {
-      const { data } = await supabase
+      console.log("MyTasks: Descargando tareas para:", currentUserId);
+      const { data, error } = await supabase
         .from('work_orders')
         .select(`*, machine:machines(name)`)
-        .eq('technician_id', session.user.id)
+        .eq('technician_id', currentUserId)
         .order('updated_at', { ascending: false });
 
-      if (data) setTasks(data);
+      if (error) throw error;
+      if (data) {
+        console.log("MyTasks: Tareas encontradas:", data.length);
+        setTasks(data);
+      }
     } catch (error) {
-      console.error(error);
+      console.error("MyTasks Error:", error);
     } finally {
       setLoading(false);
     }
@@ -39,6 +57,16 @@ export default function MyTasksPage() {
 
   useEffect(() => {
     fetchMyTasks();
+    
+    // Suscribirse a cambios en TIEMPO REAL para que aparezcan las órdenes sin refrescar
+    const channel = supabase
+      .channel('technician-orders')
+      .on('postgres_changes', 
+          { event: '*', table: 'work_orders', filter: `technician_id=eq.${user?.id}` }, 
+          () => fetchMyTasks())
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, [user]);
 
   const updateTaskStatus = async (taskId, newStatus, machineId) => {
