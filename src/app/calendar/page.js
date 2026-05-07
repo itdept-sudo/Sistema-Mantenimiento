@@ -11,6 +11,8 @@ import {
   Box, 
   Clock,
   LayoutGrid,
+  List,
+  Settings as SettingsIcon,
   Plus,
   Info,
   X,
@@ -135,7 +137,12 @@ export default function CalendarPage() {
             <button onClick={() => setView('month')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'month' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Mes</button>
             <button onClick={() => setView('week')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'week' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Semana</button>
             <button onClick={() => setView('day')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'day' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Día</button>
-            <button onClick={() => setView('manage')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'manage' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Gestionar</button>
+            <button 
+              onClick={() => setView('manage')} 
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${view === 'manage' ? 'bg-blue-600 text-white shadow-lg' : 'text-blue-400 hover:bg-blue-500/10'}`}
+            >
+              <SettingsIcon className="w-3.5 h-3.5" /> Gestionar
+            </button>
           </div>
         </div>
       </div>
