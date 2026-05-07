@@ -13,6 +13,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 import OrderModal from './OrderModal';
+import ScheduleModal from './ScheduleModal';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 const columns = [
   { id: 'open', name: 'Abiertas', color: 'bg-blue-500' },
@@ -27,12 +29,62 @@ export default function KanbanBoard() {
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'week', 'month'
 
   const fetchMachines = async () => {
     const { data } = await supabase.from('machines').select('id, name');
     if (data) setMachines(data);
+  };
+
+  const checkAndGenerateSchedules = async () => {
+    if (!supabase) return;
+    
+    try {
+      const now = new Date().toISOString();
+      // Buscamos programaciones activas que ya vencieron
+      const { data: pendingSchedules } = await supabase
+        .from('maintenance_schedules')
+        .select('*')
+        .eq('is_active', true)
+        .lte('next_due', now);
+
+      if (pendingSchedules && pendingSchedules.length > 0) {
+        console.log(`Procesando ${pendingSchedules.length} mantenimientos preventivos...`);
+        
+        for (const schedule of pendingSchedules) {
+          // 1. Crear la orden de trabajo
+          const { error: orderError } = await supabase
+            .from('work_orders')
+            .insert([{
+              machine_id: schedule.machine_id,
+              technician_id: schedule.technician_id,
+              description: `[PREVENTIVO] ${schedule.title}: ${schedule.task_description}`,
+              priority: 'medium',
+              maintenance_type: 'preventive',
+              status: 'open'
+            }]);
+
+          if (!orderError) {
+            // 2. Calcular la siguiente fecha de vencimiento
+            const nextDate = new Date(schedule.next_due);
+            nextDate.setDate(nextDate.getDate() + schedule.interval_days);
+
+            await supabase
+              .from('maintenance_schedules')
+              .update({ 
+                last_performed: now,
+                next_due: nextDate.toISOString()
+              })
+              .eq('id', schedule.id);
+          }
+        }
+        fetchOrders(); // Recargar el tablero si se generaron nuevas órdenes
+      }
+    } catch (error) {
+      console.error("Error al procesar preventivos:", error);
+    }
   };
 
   const fetchOrders = async () => {
@@ -64,6 +116,7 @@ export default function KanbanBoard() {
     if (user) {
       fetchOrders();
       fetchMachines();
+      checkAndGenerateSchedules(); // Revisar preventivos al entrar
 
       const channel = supabase
         .channel('orders-updates')
@@ -136,12 +189,20 @@ export default function KanbanBoard() {
           <h2 className="text-3xl font-bold text-white tracking-tight">Órdenes de Soporte</h2>
           <p className="text-slate-400 mt-1">Gestión de actividades y reparaciones en tiempo real.</p>
         </div>
-        <button 
-          onClick={() => setIsOrderModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
-        >
-          <Plus className="w-5 h-5" /> Nueva Orden
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setIsScheduleModalOpen(true)}
+            className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 border border-slate-700"
+          >
+            <CalendarIcon className="w-5 h-5 text-blue-400" /> Programar Preventivo
+          </button>
+          <button 
+            onClick={() => setIsOrderModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
+          >
+            <Plus className="w-5 h-5" /> Nueva Orden
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -234,6 +295,16 @@ export default function KanbanBoard() {
         onClose={() => setIsOrderModalOpen(false)}
         machines={machines}
         onSuccess={() => fetchOrders()}
+      />
+
+      <ScheduleModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        machines={machines}
+        onSuccess={() => {
+          checkAndGenerateSchedules();
+          fetchOrders();
+        }}
       />
     </div>
   );
