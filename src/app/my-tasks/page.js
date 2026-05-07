@@ -16,40 +16,39 @@ export default function MyTasksPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('active'); // 'active' o 'history'
 
-  const fetchMyTasks = async () => {
+  const fetchMyTasks = async (forceAll = false) => {
     if (!supabase) return;
     
-    // Prioridad 1: Usar el usuario del contexto si ya está disponible
     let currentUserId = user?.id;
-
-    // Prioridad 2: Si no hay usuario en el contexto, buscar la sesión directamente
     if (!currentUserId) {
       const { data: { session } } = await supabase.auth.getSession();
       currentUserId = session?.user?.id;
     }
 
     if (!currentUserId) {
-      console.log("MyTasks: Esperando sesión de usuario...");
       setLoading(false);
       return;
     }
     
     setLoading(true);
     try {
-      console.log("MyTasks: Descargando tareas para:", currentUserId);
-      const { data, error } = await supabase
-        .from('work_orders')
-        .select(`*, machine:machines(name)`)
-        .eq('technician_id', currentUserId)
-        .order('updated_at', { ascending: false });
+      let query = supabase.from('work_orders').select(`*, machine:machines(name)`);
+      
+      // Si no es un escaneo forzado, filtramos por el técnico actual
+      if (!forceAll) {
+        query = query.eq('technician_id', currentUserId);
+      }
+
+      const { data, error } = await query.order('updated_at', { ascending: false });
 
       if (error) throw error;
       if (data) {
-        console.log("MyTasks: Tareas encontradas:", data.length);
         setTasks(data);
+        if (forceAll) alert(`Escaneo completado. Se encontraron ${data.length} órdenes en total en la base de datos.`);
       }
     } catch (error) {
       console.error("MyTasks Error:", error);
+      alert("Error de conexión: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -110,8 +109,16 @@ export default function MyTasksPage() {
           <h2 className="text-3xl font-bold text-white tracking-tight">Mis Tareas</h2>
           <p className="text-slate-400 mt-1">Gestión de órdenes asignadas.</p>
           {/* DEBUG INFO - Solo para diagnóstico */}
-          <div className="mt-2 text-[10px] font-mono text-slate-600 bg-slate-900 px-2 py-1 rounded w-fit">
-            DEBUG: ID {user?.id || 'No Detectado'} | Rol: {profile?.role || 'Buscando...'}
+          <div className="mt-2 flex items-center gap-4">
+            <div className="text-[10px] font-mono text-slate-600 bg-slate-900 px-2 py-1 rounded w-fit">
+              DEBUG: ID {user?.id || 'No Detectado'} | Rol: {profile?.role || 'Buscando...'}
+            </div>
+            <button 
+              onClick={() => fetchMyTasks(true)}
+              className="text-[10px] font-bold text-blue-500 hover:text-blue-400 bg-blue-500/10 px-2 py-1 rounded transition-all border border-blue-500/20"
+            >
+              Forzar Escaneo Base de Datos
+            </button>
           </div>
         </div>
 
