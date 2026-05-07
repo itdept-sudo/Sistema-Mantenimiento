@@ -70,37 +70,38 @@ export default function MyTasksPage() {
 
   const updateTaskStatus = async (taskId, newStatus, machineId) => {
     try {
-      console.log(`Intentando actualizar tarea ${taskId} a ${newStatus} para máquina ${machineId}`);
+      console.log(`DIAGNOSTICO: Tarea=${taskId}, NuevoEstado=${newStatus}, Maquina=${machineId}`);
       
-      const { error } = await supabase
+      // 1. Intentar actualizar la ORDEN primero
+      const { error: orderError } = await supabase
         .from('work_orders')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', taskId);
 
-      if (error) {
-        alert("Error al actualizar la orden: " + error.message);
+      if (orderError) {
+        alert("FALLO EN TABLA ORDENES: " + orderError.message);
         return;
       }
 
+      // 2. Si la orden funcionó, intentar actualizar la MÁQUINA
       if (machineId) {
         let newMachineStatus = 'operational';
         if (newStatus === 'in_progress') newMachineStatus = 'maintenance';
         if (newStatus === 'open') newMachineStatus = 'failure';
         
+        console.log(`DIAGNOSTICO: Cambiando máquina ${machineId} a estado ${newMachineStatus}`);
+
         const { error: machineError } = await supabase
           .from('machines')
           .update({ status: newMachineStatus })
           .eq('id', machineId);
         
         if (machineError) {
-          alert("Error al actualizar LED en plano: " + machineError.message);
+          alert("FALLO EN TABLA MAQUINAS (LED): " + machineError.message);
         }
-      } else {
-        console.warn("No se encontró machineId para actualizar el LED");
       }
     } catch (e) {
-      console.error(e);
-      alert("Error crítico: " + e.message);
+      alert("ERROR CRÍTICO DE SISTEMA: " + e.message);
     } finally {
       fetchMyTasks();
     }
