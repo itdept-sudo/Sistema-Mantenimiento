@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { ClipboardCheck, Clock, CheckCircle, Eye, History, LayoutList, RotateCcw } from 'lucide-react';
 import TaskDetailModal from '@/components/orders/TaskDetailModal';
+import { checkAndGenerateSchedules } from '@/lib/scheduleWorker';
 
 export default function MyTasksPage() {
   const { user, profile } = useAuth();
@@ -32,9 +33,12 @@ export default function MyTasksPage() {
     
     setLoading(true);
     try {
+      // 1. Procesar preventivos pendientes primero
+      const generatedNew = await checkAndGenerateSchedules();
+      
+      // 2. Obtener tareas
       let query = supabase.from('work_orders').select(`*, machine:machines(name)`);
       
-      // Si no es un escaneo forzado, filtramos por el técnico actual
       if (!forceAll) {
         query = query.eq('technician_id', currentUserId);
       }
