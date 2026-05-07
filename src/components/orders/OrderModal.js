@@ -40,21 +40,22 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
     e.preventDefault();
     setLoading(true);
 
-    console.log("Intentando crear orden y actualizar máquina:", formData.machine_id);
+    const submissionData = {
+      ...formData,
+      technician_id: formData.technician_id || null
+    };
+
+    console.log("Enviando orden:", submissionData);
     
     const { error: orderError } = await supabase
       .from('work_orders')
-      .insert([formData]);
+      .insert([submissionData]);
 
     if (!orderError && formData.maintenance_type === 'corrective') {
-      console.log("Orden correctiva detectada. Forzando LED rojo...");
-      const { error: machineError } = await supabase
+      await supabase
         .from('machines')
         .update({ status: 'failure' })
         .eq('id', formData.machine_id);
-      
-      if (machineError) console.error("Error al poner LED rojo:", machineError);
-      else console.log("LED rojo forzado con éxito.");
     }
 
     if (orderError) {
