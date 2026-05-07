@@ -191,12 +191,6 @@ export default function KanbanBoard() {
         </div>
         <div className="flex gap-3">
           <button 
-            onClick={() => setIsScheduleModalOpen(true)}
-            className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95 border border-slate-700"
-          >
-            <CalendarIcon className="w-5 h-5 text-blue-400" /> Programar Preventivo
-          </button>
-          <button 
             onClick={() => setIsOrderModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
           >

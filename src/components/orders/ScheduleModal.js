@@ -42,25 +42,25 @@ export default function ScheduleModal({ isOpen, onClose, machines, onSuccess }) 
         annually: 365
       };
 
-      // Creamos un registro por cada máquina seleccionada
-      const schedules = formData.machine_ids.map(mId => ({
-        machine_id: parseInt(mId),
+      // Creamos un solo registro con el array de máquinas
+      const schedule = {
         title: formData.title,
         task_description: formData.description,
+        machine_ids: formData.machine_ids.map(id => parseInt(id)),
         technician_id: formData.technician_id || null,
         frequency: formData.frequency,
         interval_days: intervals[formData.frequency],
         next_due: new Date(formData.start_date).toISOString(),
         is_active: true
-      }));
+      };
 
       const { error } = await supabase
         .from('maintenance_schedules')
-        .insert(schedules);
+        .insert([schedule]);
 
       if (error) throw error;
 
-      alert(`¡Éxito! Se han programado ${schedules.length} actividades.`);
+      alert(`¡Éxito! Actividad programada correctamente.`);
       onSuccess?.();
       onClose();
     } catch (error) {
