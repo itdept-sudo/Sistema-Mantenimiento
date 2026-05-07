@@ -16,21 +16,28 @@ import {
   Plus,
   Info,
   X,
-  CheckCircle2
+  CheckCircle2,
+  BookOpen,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ScheduleModal from '@/components/orders/ScheduleModal';
+import TemplateModal from '@/components/orders/TemplateModal';
 
 export default function CalendarPage() {
   const { user } = useAuth();
   const [schedules, setSchedules] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [machines, setMachines] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Modales
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   // Estados de navegación
   const [view, setView] = useState('month'); 
@@ -44,15 +51,17 @@ export default function CalendarPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [sData, tData, mData] = await Promise.all([
+      const [sData, tData, mData, tempData] = await Promise.all([
         supabase.from('maintenance_schedules').select('*, technician:profiles(full_name)').eq('is_active', true),
         supabase.from('profiles').select('id, full_name').eq('role', 'technician'),
-        supabase.from('machines').select('id, name')
+        supabase.from('machines').select('id, name'),
+        supabase.from('maintenance_templates').select('*')
       ]);
       
       if (sData.data) setSchedules(sData.data);
       if (tData.data) setTechnicians(tData.data);
       if (mData.data) setMachines(mData.data);
+      if (tempData.data) setTemplates(tempData.data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -127,28 +136,34 @@ export default function CalendarPage() {
 
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => { setSelectedActivity(null); setIsScheduleModalOpen(true); }}
+            onClick={() => { 
+              if (view === 'templates') {
+                setSelectedTemplate(null);
+                setIsTemplateModalOpen(true);
+              } else {
+                setSelectedActivity(null); 
+                setIsScheduleModalOpen(true); 
+              }
+            }}
             className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
           >
-            <Plus className="w-5 h-5" /> Programar Actividad
+            <Plus className="w-5 h-5" /> {view === 'templates' ? 'Nueva Plantilla' : 'Programar Actividad'}
           </button>
           
           <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
             <button onClick={() => setView('month')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'month' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Mes</button>
             <button onClick={() => setView('week')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'week' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Semana</button>
             <button onClick={() => setView('day')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${view === 'day' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}>Día</button>
-            <button 
-              onClick={() => setView('manage')} 
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${view === 'manage' ? 'bg-blue-600 text-white shadow-lg' : 'text-blue-400 hover:bg-blue-500/10'}`}
-            >
-              <SettingsIcon className="w-3.5 h-3.5" /> Gestionar
+            <button onClick={() => setView('manage')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${view === 'manage' ? 'bg-blue-600 text-white shadow-lg' : 'text-blue-400 hover:bg-blue-500/10'}`}><SettingsIcon className="w-3.5 h-3.5" /> Gestionar</button>
+            <button onClick={() => setView('templates')} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${view === 'templates' ? 'bg-emerald-600 text-white shadow-lg' : 'text-emerald-400 hover:bg-emerald-500/10'}`}>
+              <BookOpen className="w-3.5 h-3.5" /> Plantillas
             </button>
           </div>
         </div>
       </div>
 
-      {/* Toolbar - Ocultar si estamos en gestión */}
-      {view !== 'manage' && (
+      {/* Toolbar - Ocultar si estamos en gestión o plantillas */}
+      {view !== 'manage' && view !== 'templates' && (
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
           <div className="flex items-center gap-4">
             <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><ChevronLeft className="w-6 h-6" /></button>
@@ -265,6 +280,64 @@ export default function CalendarPage() {
             </motion.div>
           )}
 
+          {view === 'templates' && (
+            <motion.div key="templates" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-8 max-w-5xl mx-auto h-full">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl font-bold text-white">Plantillas de Procedimientos</h3>
+                <span className="text-slate-500 text-sm">{templates.length} estándares creados</span>
+              </div>
+              
+              <div className="space-y-4">
+                {templates.length === 0 ? (
+                  <div className="text-center py-20 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800">
+                    <BookOpen className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+                    <p className="text-slate-500 font-medium">Aún no tienes procedimientos estándar.</p>
+                    <button 
+                      onClick={() => setIsTemplateModalOpen(true)}
+                      className="mt-4 text-emerald-500 hover:underline text-sm font-bold"
+                    >
+                      + Crear mi primera plantilla
+                    </button>
+                  </div>
+                ) : (
+                  templates.map(t => (
+                    <div key={t.id} className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex justify-between items-center group hover:border-slate-700 transition-all">
+                      <div className="flex items-center gap-6">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500"><BookOpen className="w-6 h-6" /></div>
+                        <div>
+                          <h4 className="text-lg font-bold text-white">{t.name}</h4>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
+                            <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {t.default_frequency}</span>
+                            <span className="line-clamp-1 max-w-md">{t.description}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => { setSelectedTemplate(t); setIsTemplateModalOpen(true); }}
+                          className="px-4 py-2 bg-emerald-600/10 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" /> Editar
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (confirm('¿Eliminar esta plantilla? Las actividades programadas no se verán afectadas.')) {
+                              await supabase.from('maintenance_templates').delete().eq('id', t.id);
+                              fetchData();
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-600/10 text-red-400 hover:bg-red-600 hover:text-white rounded-xl text-sm font-bold transition-all flex items-center gap-2"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {view === 'day' && (
             <div className="p-8 max-w-3xl mx-auto space-y-4">
               {getProjectedEvents(currentDate).map(event => (
@@ -342,6 +415,16 @@ export default function CalendarPage() {
         onClose={() => { setIsScheduleModalOpen(false); setSelectedActivity(null); }}
         machines={machines}
         editData={selectedActivity}
+        onSuccess={() => {
+          fetchData();
+        }}
+      />
+
+      {/* Modal de Plantillas */}
+      <TemplateModal 
+        isOpen={isTemplateModalOpen}
+        onClose={() => { setIsTemplateModalOpen(false); setSelectedTemplate(null); }}
+        editData={selectedTemplate}
         onSuccess={() => {
           fetchData();
         }}
