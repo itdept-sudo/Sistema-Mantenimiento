@@ -79,12 +79,14 @@ export default function MyTasksPage() {
         let newMachineStatus = 'operational';
         if (newStatus === 'in_progress') newMachineStatus = 'maintenance';
         if (newStatus === 'open') newMachineStatus = 'failure';
-        if (newStatus === 'resolved' || newStatus === 'closed') newMachineStatus = 'operational';
-
-        await supabase
+        
+        // Sincronizar el color del LED en la base de datos
+        const { error: machineError } = await supabase
           .from('machines')
           .update({ status: newMachineStatus })
           .eq('id', machineId);
+        
+        if (machineError) console.error("Error al actualizar LED:", machineError);
       }
     } catch (e) {
       console.error(e);
