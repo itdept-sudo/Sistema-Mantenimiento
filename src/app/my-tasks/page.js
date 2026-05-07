@@ -70,38 +70,30 @@ export default function MyTasksPage() {
 
   const updateTaskStatus = async (taskId, newStatus, machineId) => {
     try {
-      console.log(`DIAGNOSTICO: Tarea=${taskId}, NuevoEstado=${newStatus}, Maquina=${machineId}`);
-      
-      // 1. Intentar actualizar la ORDEN primero
+      // 1. Actualizar la orden
       const { error: orderError } = await supabase
         .from('work_orders')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', taskId);
 
-      if (orderError) {
-        alert("FALLO EN TABLA ORDENES: " + orderError.message);
-        return;
-      }
+      if (orderError) throw orderError;
 
-      // 2. Si la orden funcionó, intentar actualizar la MÁQUINA
+      // 2. Actualizar el LED de la máquina
       if (machineId) {
         let newMachineStatus = 'operational';
         if (newStatus === 'in_progress') newMachineStatus = 'maintenance';
         if (newStatus === 'open') newMachineStatus = 'failure';
         
-        console.log(`DIAGNOSTICO: Cambiando máquina ${machineId} a estado ${newMachineStatus}`);
-
         const { error: machineError } = await supabase
           .from('machines')
           .update({ status: newMachineStatus })
           .eq('id', machineId);
         
-        if (machineError) {
-          alert("FALLO EN TABLA MAQUINAS (LED): " + machineError.message);
-        }
+        if (machineError) throw machineError;
       }
-    } catch (e) {
-      alert("ERROR CRÍTICO DE SISTEMA: " + e.message);
+    } catch (error) {
+      console.error("Error al actualizar tarea:", error);
+      alert("No se pudo actualizar el estado. Por favor, intenta de nuevo.");
     } finally {
       fetchMyTasks();
     }
