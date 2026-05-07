@@ -43,7 +43,6 @@ export default function KanbanBoard() {
     
     try {
       const now = new Date().toISOString();
-      // Buscamos programaciones activas que ya vencieron
       const { data: pendingSchedules } = await supabase
         .from('maintenance_schedules')
         .select('*')
@@ -54,33 +53,37 @@ export default function KanbanBoard() {
         console.log(`Procesando ${pendingSchedules.length} mantenimientos preventivos...`);
         
         for (const schedule of pendingSchedules) {
-          // 1. Crear la orden de trabajo
-          const { error: orderError } = await supabase
-            .from('work_orders')
-            .insert([{
-              machine_id: schedule.machine_id,
-              technician_id: schedule.technician_id,
-              description: `[PREVENTIVO] ${schedule.title}: ${schedule.task_description}`,
-              priority: 'medium',
-              maintenance_type: 'preventive',
-              status: 'open'
-            }]);
+          const newOrders = (schedule.machine_ids || []).map(mId => ({
+            machine_id: mId,
+            technician_id: schedule.technician_id,
+            description: `[PREVENTIVO] ${schedule.title}: ${schedule.task_description}`,
+            priority: 'medium',
+            maintenance_type: 'preventive',
+            status: 'open'
+          }));
 
-          if (!orderError) {
-            // 2. Calcular la siguiente fecha de vencimiento
-            const nextDate = new Date(schedule.next_due);
-            nextDate.setDate(nextDate.getDate() + schedule.interval_days);
+          if (newOrders.length > 0) {
+            const { error: orderError } = await supabase
+              .from('work_orders')
+              .insert(newOrders);
 
-            await supabase
-              .from('maintenance_schedules')
-              .update({ 
-                last_performed: now,
-                next_due: nextDate.toISOString()
-              })
-              .eq('id', schedule.id);
+            if (!orderError) {
+              const nextDate = new Date(schedule.next_due);
+              nextDate.setDate(nextDate.getDate() + schedule.interval_days);
+
+              await supabase
+                .from('maintenance_schedules')
+                .update({ 
+                  last_performed: now,
+                  next_due: nextDate.toISOString()
+                })
+                .eq('id', schedule.id);
+            } else {
+              console.error("Error creating scheduled orders:", orderError);
+            }
           }
         }
-        fetchOrders(); // Recargar el tablero si se generaron nuevas órdenes
+        fetchOrders();
       }
     } catch (error) {
       console.error("Error al procesar preventivos:", error);
