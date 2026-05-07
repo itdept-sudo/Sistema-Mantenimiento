@@ -67,6 +67,10 @@ export default function ScheduleModal({ isOpen, onClose, machines, onSuccess, ed
     try {
       const intervals = { daily: 1, weekly: 7, monthly: 30, bimonthly: 60, annually: 365 };
 
+      // Fix timezone offset: parse parts and create at noon local time
+      const [year, month, day] = formData.start_date.split('-');
+      const localDate = new Date(year, month - 1, day, 12, 0, 0);
+
       const schedule = {
         title: formData.title,
         task_description: formData.description,
@@ -74,7 +78,7 @@ export default function ScheduleModal({ isOpen, onClose, machines, onSuccess, ed
         technician_id: formData.technician_id || null,
         frequency: formData.frequency,
         interval_days: intervals[formData.frequency],
-        next_due: new Date(formData.start_date).toISOString(),
+        next_due: localDate.toISOString(),
         is_active: true
       };
 
