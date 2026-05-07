@@ -105,14 +105,18 @@ export default function MyTasksPage() {
 
   return (
     <div className="p-8 h-full flex flex-col">
-      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <h2 className="text-3xl font-bold text-white tracking-tight">Mis Tareas</h2>
-          <p className="text-slate-400 mt-1">Historial y gestión de mantenimiento.</p>
+          <p className="text-slate-400 mt-1">Gestión de órdenes asignadas.</p>
+          {/* DEBUG INFO - Solo para diagnóstico */}
+          <div className="mt-2 text-[10px] font-mono text-slate-600 bg-slate-900 px-2 py-1 rounded w-fit">
+            DEBUG: ID {user?.id || 'No Detectado'} | Rol: {profile?.role || 'Buscando...'}
+          </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 h-fit">
           <button 
             onClick={() => setActiveTab('active')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
@@ -134,15 +138,17 @@ export default function MyTasksPage() {
 
       <div className="flex-1">
         {(activeTab === 'active' ? activeTasks : historyTasks).length === 0 ? (
-          <div className="h-64 bg-slate-900/50 border border-slate-800 rounded-3xl flex flex-col items-center justify-center p-12 text-center">
+          <div className="bg-slate-900/50 border border-slate-800 rounded-3xl flex flex-col items-center justify-center p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 mb-4">
               <ClipboardCheck className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-bold text-white mb-1">
               {activeTab === 'active' ? '¡Todo al día!' : 'Sin historial'}
             </h3>
-            <p className="text-slate-500">
-              {activeTab === 'active' ? 'No tienes órdenes de trabajo pendientes.' : 'Aún no has cerrado ninguna orden.'}
+            <p className="text-slate-500 max-w-sm">
+              {activeTab === 'active' 
+                ? 'Si tienes órdenes asignadas pero no aparecen aquí, verifica que tu ID de usuario coincida con la asignación en el panel de Admin.' 
+                : 'Aún no has cerrado ninguna orden.'}
             </p>
           </div>
         ) : (
