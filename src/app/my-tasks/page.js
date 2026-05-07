@@ -70,26 +70,37 @@ export default function MyTasksPage() {
 
   const updateTaskStatus = async (taskId, newStatus, machineId) => {
     try {
+      console.log(`Intentando actualizar tarea ${taskId} a ${newStatus} para máquina ${machineId}`);
+      
       const { error } = await supabase
         .from('work_orders')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', taskId);
 
-      if (!error && machineId) {
+      if (error) {
+        alert("Error al actualizar la orden: " + error.message);
+        return;
+      }
+
+      if (machineId) {
         let newMachineStatus = 'operational';
         if (newStatus === 'in_progress') newMachineStatus = 'maintenance';
         if (newStatus === 'open') newMachineStatus = 'failure';
         
-        // Sincronizar el color del LED en la base de datos
         const { error: machineError } = await supabase
           .from('machines')
           .update({ status: newMachineStatus })
           .eq('id', machineId);
         
-        if (machineError) console.error("Error al actualizar LED:", machineError);
+        if (machineError) {
+          alert("Error al actualizar LED en plano: " + machineError.message);
+        }
+      } else {
+        console.warn("No se encontró machineId para actualizar el LED");
       }
     } catch (e) {
       console.error(e);
+      alert("Error crítico: " + e.message);
     } finally {
       fetchMyTasks();
     }
