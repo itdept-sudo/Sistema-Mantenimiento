@@ -206,7 +206,65 @@ export default function CalendarPage() {
             </motion.div>
           )}
 
-          {/* Vistas Semana y Día abreviadas por espacio, similares a la de mes */}
+          {view === 'manage' && (
+            <motion.div key="manage" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-8 max-w-5xl mx-auto h-full">
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-2xl font-bold text-white">Gestión de Programas Recurrentes</h3>
+                <span className="text-slate-500 text-sm">{schedules.length} programas activos</span>
+              </div>
+              
+              <div className="space-y-4">
+                {schedules.length === 0 ? (
+                  <div className="text-center py-20 bg-slate-900/50 rounded-3xl border border-dashed border-slate-800">
+                    <CalendarIcon className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+                    <p className="text-slate-500 font-medium">No hay programaciones activas.</p>
+                    <button 
+                      onClick={() => setIsScheduleModalOpen(true)}
+                      className="mt-4 text-blue-500 hover:underline text-sm font-bold"
+                    >
+                      + Crear mi primera programación
+                    </button>
+                  </div>
+                ) : (
+                  schedules.map(s => (
+                    <div key={s.id} className="bg-slate-900 border border-slate-800 p-6 rounded-3xl flex justify-between items-center group hover:border-slate-700 transition-all">
+                      <div className="flex items-center gap-6">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-500"><LayoutGrid className="w-6 h-6" /></div>
+                        <div>
+                          <h4 className="text-lg font-bold text-white">{s.title}</h4>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
+                            <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {s.frequency}</span>
+                            <span className="flex items-center gap-1.5"><User className="w-4 h-4" /> {s.technician?.full_name || 'Sin asignar'}</span>
+                            <span className="flex items-center gap-1.5"><Box className="w-4 h-4" /> {s.machine_ids?.length} máquinas</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => { setSelectedActivity(s); setIsScheduleModalOpen(true); }}
+                          className="px-4 py-2 bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl text-sm font-bold transition-all"
+                        >
+                          Editar
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (confirm('¿Eliminar esta programación?')) {
+                              await supabase.from('maintenance_schedules').delete().eq('id', s.id);
+                              fetchData();
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-600/10 text-red-400 hover:bg-red-600 hover:text-white rounded-xl text-sm font-bold transition-all"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+
           {view === 'day' && (
             <div className="p-8 max-w-3xl mx-auto space-y-4">
               {getProjectedEvents(currentDate).map(event => (
