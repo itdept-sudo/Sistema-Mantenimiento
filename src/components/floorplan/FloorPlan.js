@@ -47,13 +47,30 @@ export default function FloorPlan() {
   useEffect(() => {
     fetchData();
 
+    // SUSCRIPCIÓN REFORZADA EN TIEMPO REAL
     const channel = supabase
-      .channel('floor-updates')
-      .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchData())
-      .on('postgres_changes', { event: '*', table: 'settings' }, () => fetchData())
-      .subscribe();
+      .channel('floor-updates-realtime')
+      .on('postgres_changes', 
+        { event: '*', table: 'machines', schema: 'public' }, 
+        (payload) => {
+          console.log("PLAN: Cambio en máquina detectado!", payload);
+          fetchData();
+        }
+      )
+      .on('postgres_changes', 
+        { event: '*', table: 'settings', schema: 'public' }, 
+        (payload) => {
+          console.log("PLAN: Configuración actualizada!", payload);
+          fetchData();
+        }
+      )
+      .subscribe((status) => {
+        console.log("PLAN: Estado de conexión Realtime:", status);
+      });
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   useEffect(() => {
