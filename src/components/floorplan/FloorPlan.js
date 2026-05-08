@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Upload, Settings } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Upload, Settings, Maximize, Minimize } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderModal from '@/components/orders/OrderModal';
 import { useAuth } from '@/lib/AuthContext';
@@ -19,7 +19,9 @@ export default function FloorPlan() {
   const [machineOrders, setMachineOrders] = useState([]);
   const [planImage, setPlanImage] = useState('/floorplan.png');
   const [isUploading, setIsUploading] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const fileInputRef = useRef(null);
+  const containerRef = useRef(null);
 
   const fetchData = async () => {
     if (!supabase || !user) return;
@@ -154,11 +156,31 @@ export default function FloorPlan() {
     }
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen().catch(err => {
+        alert(`Error al intentar pantalla completa: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   const unmappedMachines = machines.filter(m => !m.x_pos || m.x_pos === 0);
 
   return (
-    <div className="p-8 h-full flex flex-col">
+    <div ref={containerRef} className={`flex flex-col bg-slate-950 ${isFullscreen ? 'p-4 h-screen w-screen overflow-hidden' : 'p-8 h-full'}`}>
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+
+      {!isFullscreen && (
 
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -213,21 +235,34 @@ export default function FloorPlan() {
           )}
         </div>
       </div>
+      )}
 
-      <div className="flex flex-wrap gap-6 mb-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800 w-fit">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-          <span className="text-xs text-slate-300 font-medium">Operativa</span>
+      {/* Leyenda y Botón Pantalla Completa - Siempre Visibles */}
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-wrap gap-6 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 w-fit backdrop-blur-sm z-10 shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+            <span className="text-xs text-slate-300 font-medium">Operativa</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+            <span className="text-xs text-slate-300 font-medium">Falla / Paro</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
+            <span className="text-xs text-slate-300 font-medium">Mantenimiento</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-          <span className="text-xs text-slate-300 font-medium">Falla / Paro</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
-          <span className="text-xs text-slate-300 font-medium">Mantenimiento</span>
-        </div>
+
+        <button 
+          onClick={toggleFullscreen}
+          className="p-3 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700 backdrop-blur-sm z-10 shadow-lg"
+          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+        >
+          {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+        </button>
       </div>
+
 
       <div className="flex-1 relative bg-slate-950 rounded-3xl border border-slate-800 overflow-auto p-4">
         <div 
