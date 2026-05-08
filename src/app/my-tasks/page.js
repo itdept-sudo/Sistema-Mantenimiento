@@ -15,7 +15,7 @@ export default function MyTasksPage() {
   const [loading, setLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('active'); // 'active' o 'history'
+  const [activeTab, setActiveTab] = useState('corrective'); // 'corrective', 'preventive' o 'history'
 
   const fetchMyTasks = async (forceAll = false) => {
     if (!supabase) return;
@@ -103,7 +103,8 @@ export default function MyTasksPage() {
     }
   };
 
-  const activeTasks = tasks.filter(t => t.status !== 'closed');
+  const activeCorrective = tasks.filter(t => t.status !== 'closed' && (t.maintenance_type === 'corrective' || !t.maintenance_type));
+  const activePreventive = tasks.filter(t => t.status !== 'closed' && t.maintenance_type === 'preventive');
   const historyTasks = tasks.filter(t => t.status === 'closed');
 
   if (loading && tasks.length === 0) return (
@@ -123,12 +124,20 @@ export default function MyTasksPage() {
         {/* Tabs */}
         <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 h-fit">
           <button 
-            onClick={() => setActiveTab('active')}
+            onClick={() => setActiveTab('corrective')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'active' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
+              activeTab === 'corrective' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
             }`}
           >
-            <LayoutList className="w-4 h-4" /> Activas ({activeTasks.length})
+            <LayoutList className="w-4 h-4" /> Soporte ({activeCorrective.length})
+          </button>
+          <button 
+            onClick={() => setActiveTab('preventive')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+              activeTab === 'preventive' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            <Clock className="w-4 h-4" /> Preventivos ({activePreventive.length})
           </button>
           <button 
             onClick={() => setActiveTab('history')}
@@ -142,23 +151,23 @@ export default function MyTasksPage() {
       </div>
 
       <div className="flex-1">
-        {(activeTab === 'active' ? activeTasks : historyTasks).length === 0 ? (
+        {(activeTab === 'corrective' ? activeCorrective : activeTab === 'preventive' ? activePreventive : historyTasks).length === 0 ? (
           <div className="bg-slate-900/50 border border-slate-800 rounded-3xl flex flex-col items-center justify-center p-12 text-center">
             <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 mb-4">
               <ClipboardCheck className="w-8 h-8" />
             </div>
             <h3 className="text-xl font-bold text-white mb-1">
-              {activeTab === 'active' ? '¡Todo al día!' : 'Sin historial'}
+              {activeTab === 'corrective' || activeTab === 'preventive' ? '¡Todo al día!' : 'Sin historial'}
             </h3>
             <p className="text-slate-500 max-w-sm">
-              {activeTab === 'active' 
+              {activeTab === 'corrective' || activeTab === 'preventive' 
                 ? 'Si tienes órdenes asignadas pero no aparecen aquí, verifica que tu ID de usuario coincida con la asignación en el panel de Admin.' 
                 : 'Aún no has cerrado ninguna orden.'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {(activeTab === 'active' ? activeTasks : historyTasks).map((task) => (
+            {(activeTab === 'corrective' ? activeCorrective : activeTab === 'preventive' ? activePreventive : historyTasks).map((task) => (
               <div key={task.id} className={`bg-slate-900 border border-slate-800 rounded-2xl p-6 transition-all shadow-xl flex flex-col ${
                 task.status === 'closed' ? 'opacity-75 grayscale-[0.5]' : 'hover:border-slate-700'
               }`}>
