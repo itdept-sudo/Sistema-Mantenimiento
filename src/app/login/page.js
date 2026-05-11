@@ -204,12 +204,6 @@ function LoginContent() {
             </>
           )}
 
-          {!isIPAuthorized && userIP && (
-            <p className="text-center text-[10px] text-slate-600 mt-3">
-              Función deshabilitada fuera de planta (IP: {userIP})
-            </p>
-          )}
-
           <p className="text-center text-xs text-slate-500 mt-8 leading-relaxed">
             Al iniciar sesión, aceptas nuestros términos de servicio y políticas de seguridad industrial.
           </p>
