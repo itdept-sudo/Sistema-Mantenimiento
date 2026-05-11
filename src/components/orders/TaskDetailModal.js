@@ -1,10 +1,48 @@
 'use client';
 
-import { X, Calendar, User, Tag, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
+import { X, Calendar, User, Tag, AlertCircle, CheckCircle2, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export default function TaskDetailModal({ isOpen, onClose, task }) {
+export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'manager' || profile?.role === 'admin' || profile?.role === 'supervisor';
+  
+  const [technicians, setTechnicians] = useState([]);
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && isAdmin) {
+      const fetchTechnicians = async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .eq('role', 'technician');
+        if (data) setTechnicians(data);
+      };
+      fetchTechnicians();
+    }
+  }, [isOpen, isAdmin]);
+
   if (!isOpen || !task) return null;
+
+  const handleAssign = async (techId) => {
+    setIsAssigning(true);
+    const { error } = await supabase
+      .from('work_orders')
+      .update({ technician_id: techId || null })
+      .eq('id', task.id);
+    
+    if (error) {
+      alert("Error al asignar: " + error.message);
+    } else {
+      onSuccess?.();
+      onClose();
+    }
+    setIsAssigning(false);
+  };
 
   const statusColors = {
     open: 'bg-blue-500/20 text-blue-400',
@@ -42,19 +80,19 @@ export default function TaskDetailModal({ isOpen, onClose, task }) {
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 <Tag className="w-3 h-3" /> Máquina
               </span>
-              <p className="text-white font-bold text-lg">{task.machine?.name || 'N/A'}</p>
+              <p className="text-white font-bold text-lg">{task.machines?.name || 'N/A'}</p>
             </div>
             <div className="space-y-1 text-right">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 justify-end">
                 <Calendar className="w-3 h-3" /> Fecha Reporte
               </span>
-              <p className="text-white">{new Date(task.created_at).toLocaleDateString()} {new Date(task.created_at).toLocaleTimeString()}</p>
+              <p className="text-white text-sm">{new Date(task.created_at).toLocaleDateString()} {new Date(task.created_at).toLocaleTimeString()}</p>
             </div>
           </div>
 
@@ -66,6 +104,27 @@ export default function TaskDetailModal({ isOpen, onClose, task }) {
               Tipo: {task.maintenance_type}
             </div>
           </div>
+
+          {/* Sección de Asignación (Solo para Admins/Managers) */}
+          {isAdmin && (
+            <div className="bg-blue-600/5 border border-blue-600/20 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2 text-blue-400">
+                <UserPlus className="w-4 h-4" />
+                <h4 className="text-xs font-bold uppercase tracking-widest">Asignación de Técnico</h4>
+              </div>
+              <select 
+                value={task.technician_id || ''}
+                disabled={isAssigning}
+                onChange={(e) => handleAssign(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-all text-sm"
+              >
+                <option value="">-- Seleccionar Técnico para Asignar --</option>
+                {technicians.map(tech => (
+                  <option key={tech.id} value={tech.id}>{tech.full_name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="bg-slate-950/50 rounded-2xl p-5 border border-slate-800 space-y-5">
             {task.reporter_name && (
@@ -86,7 +145,7 @@ export default function TaskDetailModal({ isOpen, onClose, task }) {
                 <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-3 tracking-widest">Evidencia Fotográfica</h4>
                 <div className="flex gap-3 overflow-x-auto pb-2">
                   {task.photo_urls.map((url, idx) => (
-                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="relative h-32 w-32 rounded-xl overflow-hidden border border-slate-700 block flex-shrink-0 hover:border-blue-500 transition-colors">
+                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="relative h-40 w-40 rounded-xl overflow-hidden border border-slate-700 block flex-shrink-0 hover:border-blue-500 transition-colors shadow-lg">
                       <img src={url} alt={`Evidencia ${idx + 1}`} className="object-cover w-full h-full" />
                     </a>
                   ))}

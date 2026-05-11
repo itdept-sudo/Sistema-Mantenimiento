@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import OrderModal from './OrderModal';
 import ScheduleModal from './ScheduleModal';
+import TaskDetailModal from './TaskDetailModal';
 import { Calendar as CalendarIcon } from 'lucide-react';
 
 const columns = [
@@ -30,6 +31,8 @@ export default function KanbanBoard() {
   const [loading, setLoading] = useState(true);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'week', 'month'
 
@@ -249,7 +252,11 @@ export default function KanbanBoard() {
 
             <div className="flex-1 bg-slate-900/30 border border-slate-800/50 rounded-2xl p-4 space-y-4">
               {filteredOrders.filter(o => o.status === column.id).map((order) => (
-                <div key={order.id} className="p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all cursor-pointer group">
+                <div 
+                  key={order.id} 
+                  onClick={() => { setSelectedTask(order); setIsDetailModalOpen(true); }}
+                  className="p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all cursor-pointer group"
+                >
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded uppercase tracking-wider">
                       ID: {String(order.id).substring(0, 5)}
@@ -307,6 +314,13 @@ export default function KanbanBoard() {
           checkAndGenerateSchedules();
           fetchOrders();
         }}
+      />
+
+      <TaskDetailModal 
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        task={selectedTask}
+        onSuccess={() => fetchOrders()}
       />
     </div>
   );
