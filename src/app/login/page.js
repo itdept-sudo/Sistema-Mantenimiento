@@ -21,7 +21,7 @@ function LoginContent() {
   // IP Restriction State
   const [userIP, setUserIP] = useState(null);
   const [isIPAuthorized, setIsIPAuthorized] = useState(false);
-  const AUTHORIZED_IP = '187.249.0.68';
+  const AUTHORIZED_IP = '187.249.0.66';
 
   // Guest Report State
   const [step, setStep] = useState(1);
@@ -188,23 +188,21 @@ function LoginContent() {
             {isLoggingIn ? 'Conectando...' : 'Iniciar sesión con Google'}
           </button>
 
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
-            <div className="relative flex justify-center text-sm"><span className="px-4 bg-slate-900 text-slate-500">O ingresa como invitado</span></div>
-          </div>
+          {isIPAuthorized && (
+            <>
+              <div className="relative my-8">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
+                <div className="relative flex justify-center text-sm"><span className="px-4 bg-slate-900 text-slate-500">O ingresa como invitado</span></div>
+              </div>
 
-          <button 
-            onClick={() => isIPAuthorized && setView('report')}
-            disabled={!isIPAuthorized}
-            className={`w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold transition-all border shadow-lg ${
-              isIPAuthorized 
-                ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700 active:scale-95' 
-                : 'bg-slate-900/50 text-slate-600 border-slate-800 cursor-not-allowed opacity-60'
-            }`}
-          >
-            {!isIPAuthorized && <Lock className="w-4 h-4" />}
-            Reportar Falla (Producción)
-          </button>
+              <button 
+                onClick={() => setView('report')}
+                className="w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold transition-all border shadow-lg bg-slate-800 hover:bg-slate-700 text-white border-slate-700 active:scale-95"
+              >
+                Reportar Falla (Producción)
+              </button>
+            </>
+          )}
 
           {!isIPAuthorized && userIP && (
             <p className="text-center text-[10px] text-slate-600 mt-3">
