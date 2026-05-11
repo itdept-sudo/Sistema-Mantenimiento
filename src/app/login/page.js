@@ -112,7 +112,7 @@ export default function LoginPage() {
         photoUrls.push(publicUrl);
       }
 
-      await supabase.from('work_orders').insert([{
+      const { error: orderError } = await supabase.from('work_orders').insert([{
         machine_id: formData.machine_id,
         description: formData.description,
         priority: formData.priority,
@@ -122,6 +122,8 @@ export default function LoginPage() {
         reporter_name: employeeInfo.full_name,
         photo_urls: photoUrls.length > 0 ? photoUrls : null
       }]);
+
+      if (orderError) throw orderError;
 
       await supabase.from('machines').update({ status: 'failure' }).eq('id', formData.machine_id);
       setStep(3);
