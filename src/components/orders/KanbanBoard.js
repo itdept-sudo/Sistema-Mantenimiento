@@ -257,6 +257,11 @@ export default function KanbanBoard() {
                     {order.priority === 'urgent' && <AlertCircle className="w-4 h-4 text-red-500" />}
                   </div>
                   <h4 className="text-white font-bold mb-1">{order.machines?.name || 'Máquina'}</h4>
+                  {order.reporter_name && (
+                    <div className="text-[10px] text-emerald-400 mb-1 font-medium bg-emerald-500/10 w-fit px-1.5 py-0.5 rounded">
+                      Operador: {order.reporter_name} ({order.reporter_emp_num})
+                    </div>
+                  )}
                   <p className="text-slate-500 text-sm line-clamp-2 mb-4 leading-relaxed">{order.description}</p>
                   
                   <div className="flex justify-between items-center pt-4 border-t border-slate-800">

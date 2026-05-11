@@ -61,7 +61,9 @@ CREATE TABLE public.work_orders (
   deadline TIMESTAMPTZ,
   closed_at TIMESTAMPTZ,
   photo_urls TEXT[],
-  maintenance_type TEXT DEFAULT 'corrective' CHECK (maintenance_type IN ('preventive', 'corrective'))
+  maintenance_type TEXT DEFAULT 'corrective' CHECK (maintenance_type IN ('preventive', 'corrective')),
+  reporter_emp_num TEXT,
+  reporter_name TEXT
 );
 
 ALTER TABLE public.work_orders ENABLE ROW LEVEL SECURITY;

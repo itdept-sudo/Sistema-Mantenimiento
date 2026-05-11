@@ -10,7 +10,7 @@ export default function AuthGuard({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login' && pathname !== '/auth/callback') {
+    if (!loading && !user && pathname !== '/login' && pathname !== '/auth/callback' && pathname !== '/report') {
       router.push('/login');
     }
   }, [user, loading, router, pathname]);

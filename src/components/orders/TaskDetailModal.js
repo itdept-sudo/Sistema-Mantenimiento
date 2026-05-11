@@ -67,9 +67,32 @@ export default function TaskDetailModal({ isOpen, onClose, task }) {
             </div>
           </div>
 
-          <div className="bg-slate-950/50 rounded-2xl p-5 border border-slate-800">
-            <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 tracking-widest">Descripción del Reporte</h4>
-            <p className="text-slate-300 leading-relaxed italic">"{task.description}"</p>
+          <div className="bg-slate-950/50 rounded-2xl p-5 border border-slate-800 space-y-5">
+            {task.reporter_name && (
+              <div className="pb-4 border-b border-slate-800/50">
+                <h4 className="text-[10px] font-bold text-emerald-500 uppercase mb-2 tracking-widest">Reportado por Producción</h4>
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-emerald-400" />
+                  <p className="text-white font-medium">{task.reporter_name} <span className="text-slate-500 text-sm font-mono">#{task.reporter_emp_num}</span></p>
+                </div>
+              </div>
+            )}
+            <div>
+              <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 tracking-widest">Descripción del Reporte</h4>
+              <p className="text-slate-300 leading-relaxed italic">"{task.description}"</p>
+            </div>
+            {task.photo_urls && task.photo_urls.length > 0 && (
+              <div className="pt-4 border-t border-slate-800/50">
+                <h4 className="text-[10px] font-bold text-slate-500 uppercase mb-3 tracking-widest">Evidencia Fotográfica</h4>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {task.photo_urls.map((url, idx) => (
+                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="relative h-32 w-32 rounded-xl overflow-hidden border border-slate-700 block flex-shrink-0 hover:border-blue-500 transition-colors">
+                      <img src={url} alt={`Evidencia ${idx + 1}`} className="object-cover w-full h-full" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {task.status === 'resolved' && (
