@@ -10,7 +10,17 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const handleAuth = async () => {
       const { data, error } = await supabase.auth.getSession();
+      
       if (data?.session) {
+        const userEmail = data.session.user.email;
+        const domain = userEmail.split('@')[1];
+
+        if (domain !== 'prosper-mfg.com') {
+          await supabase.auth.signOut();
+          router.push('/login?error=domain');
+          return;
+        }
+
         router.push('/');
       } else {
         router.push('/login');

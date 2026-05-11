@@ -1,20 +1,27 @@
 'use client';
 
 import { useAuth } from '@/lib/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { itamSupabase } from '@/lib/itamSupabase';
-import { LayoutDashboard, AlertCircle, CheckCircle2, ChevronRight, HardHat, Camera, X, ArrowLeft } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, CheckCircle2, ChevronRight, HardHat, Camera, X, ArrowLeft, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function LoginPage() {
   const { user, loginWithGoogle } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const domainError = searchParams.get('error') === 'domain';
   
   // Auth state
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [view, setView] = useState('login'); // 'login' or 'report'
+
+  // IP Restriction State
+  const [userIP, setUserIP] = useState(null);
+  const [isIPAuthorized, setIsIPAuthorized] = useState(false);
+  const AUTHORIZED_IP = '187.249.0.68';
 
   // Guest Report State
   const [step, setStep] = useState(1);
@@ -30,6 +37,19 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user) router.push('/');
+    
+    // Verificar IP para el reporte de producción
+    const checkIP = async () => {
+      try {
+        const res = await fetch('https://api64.ipify.org?format=json');
+        const data = await res.json();
+        setUserIP(data.ip);
+        setIsIPAuthorized(data.ip === AUTHORIZED_IP);
+      } catch (err) {
+        console.error("Error al verificar IP:", err);
+      }
+    };
+    checkIP();
   }, [user, router]);
 
   useEffect(() => {
@@ -153,6 +173,13 @@ export default function LoginPage() {
               <p className="text-slate-400 mt-2">Plataforma de Mantenimiento y Operaciones</p>
             </div>
 
+            {domainError && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 text-red-500 text-sm">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <p>Acceso restringido. Solo se permiten correos de <strong>@prosper-mfg.com</strong></p>
+              </div>
+            )}
+
             <button 
               onClick={handleLogin}
               disabled={isLoggingIn}
@@ -168,11 +195,23 @@ export default function LoginPage() {
             </div>
 
             <button 
-              onClick={() => setView('report')}
-              className="w-full flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-xl font-bold transition-all border border-slate-700"
+              onClick={() => isIPAuthorized && setView('report')}
+              disabled={!isIPAuthorized}
+              className={`w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold transition-all border shadow-lg ${
+                isIPAuthorized 
+                  ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700 active:scale-95' 
+                  : 'bg-slate-900/50 text-slate-600 border-slate-800 cursor-not-allowed opacity-60'
+              }`}
             >
+              {!isIPAuthorized && <Lock className="w-4 h-4" />}
               Reportar Falla (Producción)
             </button>
+
+            {!isIPAuthorized && userIP && (
+              <p className="text-center text-[10px] text-slate-600 mt-3">
+                Función deshabilitada fuera de planta (IP: {userIP})
+              </p>
+            )}
 
             <p className="text-center text-xs text-slate-500 mt-8 leading-relaxed">
               Al iniciar sesión, aceptas nuestros términos de servicio y políticas de seguridad industrial.
