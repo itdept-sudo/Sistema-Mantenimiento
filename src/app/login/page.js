@@ -21,7 +21,7 @@ function LoginContent() {
   // IP Restriction State
   const [userIP, setUserIP] = useState(null);
   const [isIPAuthorized, setIsIPAuthorized] = useState(false);
-  const AUTHORIZED_IP = '187.249.0.66';
+  const AUTHORIZED_IP = '187.249.0.68';
 
   // Guest Report State
   const [step, setStep] = useState(1);
