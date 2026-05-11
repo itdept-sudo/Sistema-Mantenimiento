@@ -60,6 +60,22 @@ export default function LoginPage() {
           {isLoggingIn ? 'Conectando...' : 'Iniciar sesión con Google'}
         </button>
 
+        <div className="relative my-8">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-800"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-slate-900 text-slate-500">O ingresa como invitado</span>
+          </div>
+        </div>
+
+        <button 
+          onClick={() => router.push('/report')}
+          className="w-full flex items-center justify-center gap-3 bg-slate-800 hover:bg-slate-700 text-white py-4 rounded-xl font-bold transition-all active:scale-95 shadow-lg border border-slate-700"
+        >
+          Reportar Falla (Producción)
+        </button>
+
         <p className="text-center text-xs text-slate-500 mt-8 leading-relaxed">
           Al iniciar sesión, aceptas nuestros términos de servicio y políticas de seguridad industrial.
         </p>
