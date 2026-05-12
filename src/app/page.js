@@ -33,7 +33,7 @@ export default function Dashboard() {
       // 1. Fetch Work Orders for Stats and Ranking
       const { data: orders } = await supabase
         .from('work_orders')
-        .select('*, profiles(full_name)');
+        .select('*, profiles:technician_id(full_name)');
       
       // 2. Fetch Machines for Availability
       const { data: machines } = await supabase.from('machines').select('status');
@@ -49,7 +49,7 @@ export default function Dashboard() {
       // 4. Fetch Recent Activity
       const { data: activities } = await supabase
         .from('work_orders')
-        .select('id, description, status, created_at, machines(name), profiles(full_name), reporter_name')
+        .select('id, description, status, created_at, machines(name), profiles:technician_id(full_name), reporter_name')
         .order('created_at', { ascending: false })
         .limit(5);
 
