@@ -85,9 +85,19 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
 
     console.log("Enviando orden:", submissionData);
     
-    const { error: orderError } = await supabase
+    // Insertamos la orden y pedimos que nos devuelva el ID creado
+    const { data: newOrder, error: orderError } = await supabase
       .from('work_orders')
-      .insert([submissionData]);
+      .insert([submissionData])
+      .select('id')
+      .single();
+
+    if (!orderError && newOrder && finalTechId) {
+      // Registrar al técnico inicial en la nueva tabla de equipos
+      await supabase
+        .from('work_order_technicians')
+        .insert({ work_order_id: newOrder.id, technician_id: finalTechId });
+    }
 
     if (!orderError && formData.maintenance_type === 'corrective') {
       await supabase
