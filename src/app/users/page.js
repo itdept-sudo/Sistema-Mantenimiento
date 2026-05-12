@@ -32,15 +32,20 @@ export default function UsersPage() {
   }, []);
 
   const handleRoleChange = async (userId, newRole) => {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role: newRole })
-      .eq('id', userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
 
-    if (error) {
-      alert("No tienes permisos para cambiar roles (Solo Admins).");
-    } else {
-      fetchUsers();
+      if (error) {
+        console.error("Error al actualizar rol:", error);
+        alert(`Error: ${error.message}. Asegúrate de tener permisos de Administrador y que el rol esté permitido en la base de datos.`);
+      } else {
+        fetchUsers();
+      }
+    } catch (err) {
+      alert("Error de conexión al intentar cambiar el rol.");
     }
   };
 
