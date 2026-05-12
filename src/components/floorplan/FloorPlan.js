@@ -435,5 +435,6 @@ export default function FloorPlan() {
         machines={machines}
         onSuccess={() => { fetchData(); setSelectedMachine(null); }}
       />
+    </div>
   );
 }
