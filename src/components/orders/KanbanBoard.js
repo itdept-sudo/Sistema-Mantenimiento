@@ -43,12 +43,21 @@ export default function KanbanBoard() {
 
   const fetchSettings = async () => {
     try {
-      const { data } = await supabase
+      // Intentar cargar desde localStorage primero para rapidez
+      const localValue = localStorage.getItem('auto_assign_enabled');
+      if (localValue !== null) setAutoAssign(localValue === 'true');
+
+      const { data, error } = await supabase
         .from('system_settings')
         .select('value')
         .eq('key', 'auto_assign')
         .maybeSingle();
-      if (data) setAutoAssign(data.value.enabled);
+      
+      if (error) throw error;
+      if (data) {
+        setAutoAssign(data.value.enabled);
+        localStorage.setItem('auto_assign_enabled', data.value.enabled);
+      }
     } catch (err) {
       console.warn("Settings table not found or error:", err);
     }
@@ -57,10 +66,21 @@ export default function KanbanBoard() {
   const handleToggleAutoAssign = async () => {
     const newValue = !autoAssign;
     setAutoAssign(newValue);
+    localStorage.setItem('auto_assign_enabled', newValue);
+
     try {
-      await supabase
+      const { error } = await supabase
         .from('system_settings')
-        .upsert({ key: 'auto_assign', value: { enabled: newValue }, updated_at: new Date().toISOString() });
+        .upsert({ 
+          key: 'auto_assign', 
+          value: { enabled: newValue }, 
+          updated_at: new Date().toISOString() 
+        });
+      
+      if (error) {
+        console.error("Supabase error:", error);
+        alert("Aviso: No se pudo guardar en la base de datos (" + error.message + "). El modo funcionará solo en esta sesión.");
+      }
     } catch (err) {
       console.error("Error saving auto-assign setting:", err);
     }
