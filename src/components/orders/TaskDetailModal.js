@@ -51,7 +51,7 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
         fetchTechnicians();
       }
     }
-  }, [isOpen, isAdmin, task.id]);
+  }, [isOpen, isAdmin, task?.id]);
 
   if (!isOpen || !task) return null;
 
