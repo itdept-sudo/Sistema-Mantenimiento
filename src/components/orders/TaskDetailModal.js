@@ -11,50 +11,79 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
   const isAdmin = profile?.role === 'manager' || profile?.role === 'admin' || profile?.role === 'supervisor';
   
   const [technicians, setTechnicians] = useState([]);
+  const [assignedTechs, setAssignedTechs] = useState([]);
   const [isAssigning, setIsAssigning] = useState(false);
 
-  useEffect(() => {
-    if (isOpen && isAdmin) {
-      const fetchTechnicians = async () => {
-        // Fetch technicians
-        const { data: techs } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .eq('role', 'technician');
-        
-        if (techs) {
-          // Fetch active counts for all technicians in one go
-          const { data: counts } = await supabase
-            .from('work_orders')
-            .select('technician_id')
-            .not('status', 'in', '("closed","resolved")');
-          
-          const techWithCounts = techs.map(t => {
-            const activeCount = counts?.filter(c => c.technician_id === t.id).length || 0;
-            return { ...t, activeCount };
-          });
+  const fetchAssignedTechs = async () => {
+    const { data } = await supabase
+      .from('work_order_technicians')
+      .select('profiles(id, full_name)')
+      .eq('work_order_id', task.id);
+    if (data) setAssignedTechs(data.map(d => d.profiles));
+  };
 
-          setTechnicians(techWithCounts);
-        }
-      };
-      fetchTechnicians();
+  useEffect(() => {
+    if (isOpen) {
+      fetchAssignedTechs();
+      if (isAdmin) {
+        const fetchTechnicians = async () => {
+          // Fetch technicians
+          const { data: techs } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .eq('role', 'technician');
+          
+          if (techs) {
+            // Fetch active counts for all technicians in one go
+            const { data: counts } = await supabase
+              .from('work_orders')
+              .select('technician_id')
+              .not('status', 'in', '("closed","resolved")');
+            
+            const techWithCounts = techs.map(t => {
+              const activeCount = counts?.filter(c => c.technician_id === t.id).length || 0;
+              return { ...t, activeCount };
+            });
+
+            setTechnicians(techWithCounts);
+          }
+        };
+        fetchTechnicians();
+      }
     }
-  }, [isOpen, isAdmin]);
+  }, [isOpen, isAdmin, task.id]);
 
   if (!isOpen || !task) return null;
 
-  const handleAssign = async (techId) => {
+  const handleAddTech = async (techId) => {
+    if (!techId || assignedTechs.find(t => t.id === techId)) return;
     setIsAssigning(true);
     const { error } = await supabase
-      .from('work_orders')
-      .update({ technician_id: techId || null })
-      .eq('id', task.id);
+      .from('work_order_technicians')
+      .insert({ work_order_id: task.id, technician_id: techId });
     
     if (error) {
       alert("Error al asignar: " + error.message);
     } else {
+      fetchAssignedTechs();
       onSuccess?.();
-      onClose();
+    }
+    setIsAssigning(false);
+  };
+
+  const handleRemoveTech = async (techId) => {
+    setIsAssigning(true);
+    const { error } = await supabase
+      .from('work_order_technicians')
+      .delete()
+      .eq('work_order_id', task.id)
+      .eq('technician_id', techId);
+    
+    if (error) {
+      alert("Error al desasignar: " + error.message);
+    } else {
+      fetchAssignedTechs();
+      onSuccess?.();
     }
     setIsAssigning(false);
   };
@@ -120,28 +149,52 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
             </div>
           </div>
 
-          {/* Sección de Asignación (Solo para Admins/Managers) */}
-          {isAdmin && (
-            <div className="bg-blue-600/5 border border-blue-600/20 rounded-2xl p-5 space-y-3">
-              <div className="flex items-center gap-2 text-blue-400">
-                <UserPlus className="w-4 h-4" />
-                <h4 className="text-xs font-bold uppercase tracking-widest">Asignación de Técnico</h4>
-              </div>
+          {/* Sección de Asignación Múltiple (Solo para Admins/Managers) */}
+          <div className="bg-blue-600/5 border border-blue-600/20 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2 text-blue-400">
+              <UserPlus className="w-4 h-4" />
+              <h4 className="text-xs font-bold uppercase tracking-widest">Técnicos Asignados</h4>
+            </div>
+            
+            {/* Lista de técnicos actualmente asignados */}
+            <div className="flex flex-wrap gap-2">
+              {assignedTechs.map(tech => (
+                <div key={tech.id} className="flex items-center gap-2 bg-blue-500/20 text-blue-300 px-3 py-1.5 rounded-xl border border-blue-500/30 text-xs font-bold">
+                  {tech.full_name}
+                  {isAdmin && (
+                    <button 
+                      onClick={() => handleRemoveTech(tech.id)}
+                      className="hover:text-white transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {assignedTechs.length === 0 && (
+                <p className="text-xs text-slate-500 italic">No hay técnicos asignados aún.</p>
+              )}
+            </div>
+
+            {isAdmin && (
               <select 
-                value={task.technician_id || ''}
+                value=""
                 disabled={isAssigning}
-                onChange={(e) => handleAssign(e.target.value)}
+                onChange={(e) => handleAddTech(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-all text-sm"
               >
-                <option value="">-- Seleccionar Técnico para Asignar --</option>
-                {technicians.map(tech => (
-                  <option key={tech.id} value={tech.id}>
-                    {tech.full_name} ({tech.activeCount} tareas activas)
-                  </option>
-                ))}
+                <option value="">+ Añadir Técnico al Equipo...</option>
+                {technicians
+                  .filter(t => !assignedTechs.find(at => at.id === t.id))
+                  .map(tech => (
+                    <option key={tech.id} value={tech.id}>
+                      {tech.full_name} ({tech.activeCount} tareas activas)
+                    </option>
+                  ))
+                }
               </select>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="bg-slate-950/50 rounded-2xl p-5 border border-slate-800 space-y-5">
             {task.reporter_name && (
