@@ -10,7 +10,9 @@ import {
   Filter,
   User,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  ZapOff
 } from 'lucide-react';
 import OrderModal from './OrderModal';
 import ScheduleModal from './ScheduleModal';
@@ -25,7 +27,9 @@ const columns = [
 ];
 
 export default function KanbanBoard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const isAdmin = profile?.role === 'manager' || profile?.role === 'admin' || profile?.role === 'supervisor';
+  
   const [orders, setOrders] = useState([]);
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +39,32 @@ export default function KanbanBoard() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'week', 'month'
+  const [autoAssign, setAutoAssign] = useState(false);
+
+  const fetchSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'auto_assign')
+        .maybeSingle();
+      if (data) setAutoAssign(data.value.enabled);
+    } catch (err) {
+      console.warn("Settings table not found or error:", err);
+    }
+  };
+
+  const handleToggleAutoAssign = async () => {
+    const newValue = !autoAssign;
+    setAutoAssign(newValue);
+    try {
+      await supabase
+        .from('system_settings')
+        .upsert({ key: 'auto_assign', value: { enabled: newValue }, updated_at: new Date().toISOString() });
+    } catch (err) {
+      console.error("Error saving auto-assign setting:", err);
+    }
+  };
 
   const fetchMachines = async () => {
     const { data } = await supabase.from('machines').select('id, name');
@@ -122,11 +152,13 @@ export default function KanbanBoard() {
     if (user) {
       fetchOrders();
       fetchMachines();
+      fetchSettings();
       checkAndGenerateSchedules(); // Revisar preventivos al entrar
 
       const channel = supabase
         .channel('orders-updates')
         .on('postgres_changes', { event: '*', table: 'work_orders' }, () => fetchOrders())
+        .on('postgres_changes', { event: '*', table: 'system_settings' }, () => fetchSettings())
         .subscribe();
 
       return () => supabase.removeChannel(channel);
@@ -196,6 +228,19 @@ export default function KanbanBoard() {
           <p className="text-slate-400 mt-1">Gestión de actividades y reparaciones en tiempo real.</p>
         </div>
         <div className="flex gap-3">
+          {isAdmin && (
+            <button 
+              onClick={handleToggleAutoAssign}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-lg active:scale-95 border ${
+                autoAssign 
+                  ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-400' 
+                  : 'bg-slate-800 border-slate-700 text-slate-400'
+              }`}
+            >
+              {autoAssign ? <Zap className="w-5 h-5 fill-current" /> : <ZapOff className="w-5 h-5" />}
+              Auto Modo: {autoAssign ? 'ON' : 'OFF'}
+            </button>
+          )}
           <button 
             onClick={() => setIsOrderModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"

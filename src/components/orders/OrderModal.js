@@ -26,11 +26,26 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
     }
     
     const fetchTechnicians = async () => {
-      const { data } = await supabase
+      // Fetch technicians
+      const { data: techs } = await supabase
         .from('profiles')
         .select('id, full_name')
         .eq('role', 'technician');
-      if (data) setTechnicians(data);
+      
+      if (techs) {
+        // Fetch active counts
+        const { data: orders } = await supabase
+          .from('work_orders')
+          .select('technician_id')
+          .not('status', 'in', '("closed","resolved")');
+        
+        const techWithCounts = techs.map(t => ({
+          ...t,
+          activeCount: orders?.filter(o => o.technician_id === t.id).length || 0
+        }));
+
+        setTechnicians(techWithCounts);
+      }
     };
 
     if (isOpen) fetchTechnicians();
@@ -40,9 +55,32 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
     e.preventDefault();
     setLoading(true);
 
+    let finalTechId = formData.technician_id || null;
+
+    // Lógica de Asignación Automática si no se seleccionó técnico
+    if (!finalTechId) {
+      try {
+        const { data: setting } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'auto_assign')
+          .maybeSingle();
+
+        if (setting?.value?.enabled) {
+          // Ya tenemos los técnicos con sus cuentas en el estado
+          const sortedTechs = [...technicians].sort((a, b) => a.activeCount - b.activeCount);
+          if (sortedTechs.length > 0) {
+            finalTechId = sortedTechs[0].id;
+          }
+        }
+      } catch (err) {
+        console.warn("Auto-assign check failed in Modal:", err);
+      }
+    }
+
     const submissionData = {
       ...formData,
-      technician_id: formData.technician_id || null
+      technician_id: finalTechId
     };
 
     console.log("Enviando orden:", submissionData);
@@ -149,7 +187,7 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
                 >
                   <option value="">Sin asignar (Pendiente)</option>
                   {technicians.map(t => (
-                    <option key={t.id} value={t.id}>{t.full_name}</option>
+                    <option key={t.id} value={t.id}>{t.full_name} ({t.activeCount} tareas activas)</option>
                   ))}
                 </select>
               </div>

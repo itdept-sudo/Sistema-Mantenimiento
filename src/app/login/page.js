@@ -117,11 +117,58 @@ function LoginContent() {
     }
   };
 
+  const findBestTechnician = async () => {
+    try {
+      // Fetch technicians
+      const { data: techs } = await itamSupabase // Using itamSupabase to check profiles if needed or regular supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'technician');
+      
+      if (!techs || techs.length === 0) return null;
+
+      // Fetch active counts
+      const { data: orders } = await supabase
+        .from('work_orders')
+        .select('technician_id')
+        .not('status', 'in', '("closed","resolved")');
+      
+      const counts = techs.map(t => ({
+        id: t.id,
+        count: orders?.filter(o => o.technician_id === t.id).length || 0
+      }));
+
+      // Sort by count and pick the best one
+      counts.sort((a, b) => a.count - b.count);
+      return counts[0].id;
+    } catch (err) {
+      console.error("Error in findBestTechnician:", err);
+      return null;
+    }
+  };
+
   const handleSubmitReport = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
+      // 1. Check Auto-Assign Setting
+      let assignedTechId = null;
+      try {
+        const { data: setting } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'auto_assign')
+          .maybeSingle();
+        
+        if (setting?.value?.enabled) {
+          assignedTechId = await findBestTechnician();
+        }
+      } catch (err) {
+        console.warn("Auto-assign setting check failed:", err);
+      }
+
+      // 2. Upload Photo
       let photoUrls = [];
       if (photoFile) {
         const fileName = `report-${Date.now()}.${photoFile.name.split('.').pop()}`;
@@ -132,8 +179,10 @@ function LoginContent() {
         photoUrls.push(publicUrl);
       }
 
+      // 3. Insert Order
       const { error: orderError } = await supabase.from('work_orders').insert([{
         machine_id: formData.machine_id,
+        technician_id: assignedTechId,
         description: formData.description,
         priority: formData.priority,
         maintenance_type: 'corrective',
