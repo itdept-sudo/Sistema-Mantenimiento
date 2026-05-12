@@ -156,6 +156,18 @@ export default function FloorPlan() {
     }
   };
 
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  const handleZoom = (delta) => {
+    setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
+  };
+
+  const resetZoom = () => {
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       containerRef.current?.requestFullscreen().catch(err => {
@@ -168,7 +180,9 @@ export default function FloorPlan() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFull = !!document.fullscreenElement;
+      setIsFullscreen(isFull);
+      if (isFull) resetZoom();
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -177,106 +191,130 @@ export default function FloorPlan() {
   const unmappedMachines = machines.filter(m => !m.x_pos || m.x_pos === 0);
 
   return (
-    <div ref={containerRef} className={`flex flex-col bg-slate-950 ${isFullscreen ? 'p-4 h-screen w-screen overflow-hidden' : 'p-8 h-full'}`}>
+    <div 
+      ref={containerRef} 
+      className={`flex flex-col bg-slate-950 transition-all duration-300 ${
+        isFullscreen ? 'h-screen w-screen p-0 overflow-hidden' : 'p-8 h-full min-h-[600px]'
+      }`}
+    >
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
 
       {!isFullscreen && (
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-white tracking-tight">Plano Interactivo</h2>
+            <p className="text-slate-400 mt-1">Gestión visual de planta en tiempo real.</p>
+          </div>
 
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h2 className="text-3xl font-bold text-white tracking-tight">Plano Interactivo</h2>
-          <p className="text-slate-400 mt-1">Gestión visual de planta en tiempo real.</p>
+          <div className="flex gap-4 items-center">
+            {isAdmin && (
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 flex items-center gap-2"
+              >
+                {isUploading ? (
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5" />
+                    <span className="text-xs font-semibold">Cargar Plano</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {isMappingMode && isAdmin && (
+              <select 
+                className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-700"
+                onChange={(e) => setMappingMachineId(e.target.value)}
+                value={mappingMachineId || ''}
+              >
+                <option value="">Ubicar máquina...</option>
+                {unmappedMachines.map(m => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+            )}
+            
+            {isAdmin && (
+              <button 
+                onClick={() => {
+                  setIsMappingMode(!isMappingMode);
+                  if (isMappingMode) setMappingMachineId(null);
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                  isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
+                }`}
+              >
+                <MapIcon className="w-4 h-4" />
+                {isMappingMode ? 'Listo' : 'Mapear'}
+              </button>
+            )}
+          </div>
         </div>
-
-        <div className="flex gap-4 items-center">
-          {isAdmin && (
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 flex items-center gap-2"
-            >
-              {isUploading ? (
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <Upload className="w-5 h-5" />
-                  <span className="text-xs font-semibold">Cargar Plano</span>
-                </>
-              )}
-            </button>
-          )}
-
-          {isMappingMode && isAdmin && (
-            <select 
-              className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-700"
-              onChange={(e) => setMappingMachineId(e.target.value)}
-              value={mappingMachineId || ''}
-            >
-              <option value="">Ubicar máquina...</option>
-              {unmappedMachines.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          )}
-          
-          {isAdmin && (
-            <button 
-              onClick={() => {
-                setIsMappingMode(!isMappingMode);
-                if (isMappingMode) setMappingMachineId(null);
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-                isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
-              }`}
-            >
-              <MapIcon className="w-4 h-4" />
-              {isMappingMode ? 'Listo' : 'Mapear'}
-            </button>
-          )}
-        </div>
-      </div>
       )}
 
-      {/* Leyenda y Botón Pantalla Completa - Siempre Visibles */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex flex-wrap gap-6 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 w-fit backdrop-blur-sm z-10 shadow-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-xs text-slate-300 font-medium">Operativa</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-            <span className="text-xs text-slate-300 font-medium">Falla / Paro</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
-            <span className="text-xs text-slate-300 font-medium">Mantenimiento</span>
-          </div>
+      {/* Floating Controls Overlay */}
+      <div className={`absolute z-50 flex flex-col gap-4 ${isFullscreen ? 'top-6 left-6' : 'top-32 right-12'}`}>
+        {/* Zoom Controls */}
+        <div className="flex flex-col bg-slate-900/80 backdrop-blur-md border border-slate-700 p-1.5 rounded-2xl shadow-2xl">
+          <button onClick={() => handleZoom(0.2)} className="p-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-all" title="Zoom +">
+            <Plus className="w-5 h-5" />
+          </button>
+          <button onClick={() => handleZoom(-0.2)} className="p-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-all" title="Zoom -">
+            <Minimize className="w-5 h-5" />
+          </button>
+          <button onClick={resetZoom} className="p-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-all border-t border-slate-800" title="Restablecer">
+            <Maximize className="w-5 h-5" />
+          </button>
         </div>
 
+        {/* Fullscreen Button */}
         <button 
           onClick={toggleFullscreen}
-          className="p-3 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-slate-700 backdrop-blur-sm z-10 shadow-lg"
-          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          className="p-4 bg-blue-600 text-white rounded-2xl shadow-xl hover:bg-blue-500 transition-all active:scale-95"
         >
-          {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+          {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
         </button>
       </div>
 
+      {/* Legend - Floating bottom */}
+      <div className={`absolute z-40 bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-slate-800 shadow-2xl ${isFullscreen ? 'bottom-6 left-6' : 'bottom-12 left-12'}`}>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Operativa</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Falla</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
+            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Manto</span>
+          </div>
+        </div>
+      </div>
 
-      <div className="flex-1 relative bg-slate-950 rounded-3xl border border-slate-800 overflow-auto p-4">
-        <div 
-          className="relative mx-auto bg-slate-900 shadow-2xl overflow-hidden rounded-xl"
-          onClick={handleFloorClick}
+      {/* Map Container */}
+      <div className="flex-1 relative overflow-hidden bg-slate-950 rounded-[2.5rem] border border-slate-800/50 shadow-inner">
+        <motion.div 
+          drag
+          dragMomentum={false}
+          className="relative inline-block origin-center cursor-grab active:cursor-grabbing"
+          animate={{ scale, x: position.x, y: position.y }}
           style={{ 
             backgroundImage: `url('${planImage}')`,
-            backgroundSize: '100% 100%',
+            backgroundSize: 'contain',
             backgroundRepeat: 'no-repeat',
-            width: '100%',
+            backgroundPosition: 'center',
+            width: isFullscreen ? '100vw' : '100%',
+            height: isFullscreen ? '100vh' : '100%',
             minWidth: '1000px',
-            aspectRatio: '1440/900',
-            cursor: isMappingMode && mappingMachineId ? 'crosshair' : 'default'
+            minHeight: '600px'
           }}
+          onClick={handleFloorClick}
         >
           {machines.filter(m => m.x_pos > 0).map((machine) => (
             <motion.button
@@ -291,23 +329,25 @@ export default function FloorPlan() {
               className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
               style={{ left: `${machine.x_pos}%`, top: `${machine.y_pos}%` }}
             >
-              <div className={`relative w-6 h-6 rounded-full border-2 border-white shadow-lg ${
-                machine.status === 'failure' ? 'bg-red-500 animate-pulse' : 
+              <div className={`relative w-8 h-8 rounded-full border-2 border-white shadow-2xl flex items-center justify-center font-bold text-[8px] text-white ${
+                machine.status === 'failure' ? 'bg-red-500' : 
                 machine.status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500'
               }`}>
-                {machine.status === 'failure' && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75"></div>}
+                {machine.id}
+                {machine.status === 'failure' && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-50"></div>}
               </div>
             </motion.button>
           ))}
-        </div>
+        </motion.div>
 
+        {/* Machine Sidebar */}
         <AnimatePresence>
           {selectedMachine && (
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              className="absolute right-0 top-0 bottom-0 w-80 bg-slate-900/95 backdrop-blur-md border-l border-slate-800 p-6 z-20 shadow-2xl overflow-y-auto"
+              className="absolute right-0 top-0 bottom-0 w-80 bg-slate-900/90 backdrop-blur-xl border-l border-slate-800 p-6 z-[60] shadow-2xl overflow-y-auto"
             >
               <div className="flex justify-between items-start mb-6 text-white">
                 <div>
@@ -344,12 +384,12 @@ export default function FloorPlan() {
                     </div>
                   )}
                 </div>
-                <button onClick={() => setSelectedMachine(null)}>✕</button>
+                <button onClick={() => setSelectedMachine(null)} className="p-2 hover:bg-slate-800 rounded-lg">✕</button>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Historial</h4>
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Historial Reciente</h4>
                   <div className="space-y-4">
                     {machineOrders.length > 0 ? machineOrders.map((order) => (
                       <div key={order.id} className="flex gap-3 text-sm border-b border-slate-800/50 pb-3 last:border-0 text-slate-300">
@@ -362,21 +402,21 @@ export default function FloorPlan() {
                           <p className="text-[10px] text-slate-500 mt-1">{new Date(order.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
-                    )) : <p className="text-xs text-slate-600 italic">Sin historial.</p>}
+                    )) : <p className="text-xs text-slate-600 italic">Sin historial reciente.</p>}
                   </div>
                 </div>
 
                 <div className="pt-6 border-t border-slate-800 space-y-3">
                   <button 
                     onClick={() => setIsOrderModalOpen(true)}
-                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
                   >
-                    <Hammer className="w-4 h-4" /> Reportar Falla
+                    <Hammer className="w-5 h-5" /> Reportar Falla
                   </button>
                   {isAdmin && (
                     <button 
                       onClick={() => handleResetPosition(selectedMachine.id)}
-                      className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                      className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 border border-slate-700"
                     >
                       <Trash2 className="w-4 h-4 text-red-500" /> Quitar del Mapa
                     </button>
@@ -395,6 +435,5 @@ export default function FloorPlan() {
         machines={machines}
         onSuccess={() => { fetchData(); setSelectedMachine(null); }}
       />
-    </div>
   );
 }
