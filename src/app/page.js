@@ -24,6 +24,7 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState([]);
   const [inventoryAlerts, setInventoryAlerts] = useState([]);
   const [techRanking, setTechRanking] = useState([]);
+  const [rankingPeriod, setRankingPeriod] = useState('week'); // 'today', 'week', 'month', 'all'
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
@@ -57,8 +58,8 @@ export default function Dashboard() {
         const openOrders = orders.filter(o => o.status === 'open').length;
         const urgentOrders = orders.filter(o => o.priority === 'urgent' && o.status !== 'closed').length;
         
-        const oneWeekAgo = new Date();
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const now = new Date();
+        const oneWeekAgo = new Date(); oneWeekAgo.setDate(now.getDate() - 7);
         const weeklyCompleted = orders.filter(o => (o.status === 'closed' || o.status === 'resolved') && new Date(o.created_at) >= oneWeekAgo).length;
 
         const totalMachines = machines.length;
@@ -72,10 +73,20 @@ export default function Dashboard() {
           { name: 'Disponibilidad Planta', value: `${availability}%`, icon: Activity, color: 'text-purple-400', bg: 'bg-purple-400/10' },
         ]);
 
-        // Calculate Tech Ranking
-        const closedOrders = orders.filter(o => o.status === 'closed' || o.status === 'resolved');
+        // Calculate Tech Ranking with Period Filter
+        let filteredForRanking = orders.filter(o => o.status === 'closed' || o.status === 'resolved');
+        
+        if (rankingPeriod !== 'all') {
+          const limitDate = new Date();
+          if (rankingPeriod === 'today') limitDate.setHours(0, 0, 0, 0);
+          if (rankingPeriod === 'week') limitDate.setDate(now.getDate() - 7);
+          if (rankingPeriod === 'month') limitDate.setMonth(now.getMonth() - 1);
+          
+          filteredForRanking = filteredForRanking.filter(o => new Date(o.created_at) >= limitDate);
+        }
+
         const rankingMap = {};
-        closedOrders.forEach(o => {
+        filteredForRanking.forEach(o => {
           const techName = o.profiles?.full_name || 'Sin nombre';
           if (o.technician_id) {
             rankingMap[techName] = (rankingMap[techName] || 0) + 1;
@@ -125,7 +136,7 @@ export default function Dashboard() {
 
       return () => supabase.removeChannel(channel);
     }
-  }, [user]);
+  }, [user, rankingPeriod]);
 
   return (
     <div className="p-8 space-y-8">
@@ -196,11 +207,23 @@ export default function Dashboard() {
 
         {/* Tech Ranking */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <Activity className="w-5 h-5 text-orange-500" />
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-orange-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Ranking</h3>
             </div>
-            <h3 className="text-lg font-semibold text-white">Ranking de Técnicos</h3>
+            <select 
+              value={rankingPeriod}
+              onChange={(e) => setRankingPeriod(e.target.value)}
+              className="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] font-bold py-1 px-2 rounded-lg focus:outline-none focus:border-orange-500 uppercase tracking-tighter"
+            >
+              <option value="today">Hoy</option>
+              <option value="week">Semana</option>
+              <option value="month">Mes</option>
+              <option value="all">Todo</option>
+            </select>
           </div>
           <div className="flex-1 space-y-6">
             {techRanking.length > 0 ? (
