@@ -195,11 +195,14 @@ export default function Dashboard() {
     }
   };
 
+  const [now, setNow] = useState(new Date());
+
   useEffect(() => {
     if (user) {
       fetchDashboardData();
       fetchTimeSettings();
       
+      // Suscripción a cambios en la DB (Requiere habilitar Replication en Supabase)
       const channel = supabase.channel('dashboard-sync')
         .on('postgres_changes', { event: '*', table: 'work_orders' }, () => fetchDashboardData())
         .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchDashboardData())
@@ -207,12 +210,26 @@ export default function Dashboard() {
         .on('postgres_changes', { event: '*', table: 'system_settings' }, () => fetchTimeSettings())
         .subscribe();
 
-      return () => supabase.removeChannel(channel);
+      // Fallback: Refrescar datos cada 60 segundos por si falla la suscripción
+      const dataInterval = setInterval(() => {
+        fetchDashboardData();
+      }, 60000);
+
+      // Timer: Actualizar el 'ahora' cada minuto para que los colores del SLA cambien solos
+      const clockInterval = setInterval(() => {
+        setNow(new Date());
+      }, 60000);
+
+      return () => {
+        supabase.removeChannel(channel);
+        clearInterval(dataInterval);
+        clearInterval(clockInterval);
+      };
     }
   }, [user, rankingPeriod]);
 
   const getSLAColor = (createdAt) => {
-    const hours = (new Date() - new Date(createdAt)) / (1000 * 60 * 60);
+    const hours = (now - new Date(createdAt)) / (1000 * 60 * 60);
     if (hours >= timeThresholds.critical) return 'text-red-500 bg-red-500/10 border-red-500/20';
     if (hours >= timeThresholds.warning) return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
     return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
@@ -249,18 +266,24 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-end mb-4">
         <div>
-          <h2 className="text-3xl font-bold text-white tracking-tight">Dashboard General</h2>
-          <p className="text-slate-400 mt-1">Bienvenido de nuevo, {profile?.full_name || 'Encargado'}.</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-extrabold text-white tracking-tight">Dashboard Overview</h1>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Live Sync</span>
+            </div>
+          </div>
+          <p className="text-slate-400 mt-2">Monitoreo de mantenimiento y métricas operativas en tiempo real.</p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => setIsConfigOpen(true)} className="p-2 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
-            <ArrowUpRight className="w-5 h-5 rotate-45" /> {/* Simulating a config icon or settings */}
+          <button onClick={() => setIsConfigOpen(true)} title="Configurar SLA" className="p-3 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors group">
+            <Clock className="w-5 h-5 group-hover:rotate-12 transition-transform" />
           </button>
-          <div className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm font-medium flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full animate-pulse ${loading ? 'bg-orange-500' : 'bg-emerald-500'}`}></span>
-            {loading ? 'Sincronizando...' : 'Real-time Sync Active'}
+          <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-sm font-medium flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${loading ? 'bg-orange-500 animate-spin border-2 border-slate-800' : 'bg-emerald-500 animate-pulse'}`}></span>
+            <span className="text-slate-300 font-mono text-xs">{loading ? 'SYNCING...' : 'REAL-TIME ACTIVE'}</span>
           </div>
         </div>
       </div>
