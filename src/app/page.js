@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   AlertTriangle, 
   CheckCircle2, 
@@ -25,7 +26,38 @@ export default function Dashboard() {
   const [inventoryAlerts, setInventoryAlerts] = useState([]);
   const [techRanking, setTechRanking] = useState([]);
   const [rankingPeriod, setRankingPeriod] = useState('week'); // 'today', 'week', 'month', 'all'
+  const [timeThresholds, setTimeThresholds] = useState({ warning: 2, critical: 4 });
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const fetchTimeSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'time_thresholds')
+        .maybeSingle();
+      if (data) setTimeThresholds(data.value);
+    } catch (err) {
+      console.warn("Thresholds table error:", err);
+    }
+  };
+
+  const handleSaveThresholds = async (e) => {
+    e.preventDefault();
+    try {
+      await supabase
+        .from('system_settings')
+        .upsert({ 
+          key: 'time_thresholds', 
+          value: timeThresholds, 
+          updated_at: new Date().toISOString() 
+        });
+      setIsConfigOpen(false);
+    } catch (err) {
+      alert("Error al guardar umbrales.");
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -108,7 +140,9 @@ export default function Dashboard() {
           action: act.status === 'open' ? 'reportó falla en' : act.status === 'in_progress' ? 'inició reparación en' : 'actualizó',
           machine: act.machines?.name || 'Máquina desconocida',
           time: new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          date: new Date(act.created_at).toLocaleDateString()
+          date: new Date(act.created_at).toLocaleDateString(),
+          raw_date: act.created_at,
+          status: act.status
         }));
         setRecentActivity(formatted);
       }
@@ -127,19 +161,56 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       fetchDashboardData();
+      fetchTimeSettings();
       
       const channel = supabase.channel('dashboard-sync')
         .on('postgres_changes', { event: '*', table: 'work_orders' }, () => fetchDashboardData())
         .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchDashboardData())
         .on('postgres_changes', { event: '*', table: 'inventory' }, () => fetchDashboardData())
+        .on('postgres_changes', { event: '*', table: 'system_settings' }, () => fetchTimeSettings())
         .subscribe();
 
       return () => supabase.removeChannel(channel);
     }
   }, [user, rankingPeriod]);
 
+  const getSLAColor = (createdAt) => {
+    const hours = (new Date() - new Date(createdAt)) / (1000 * 60 * 60);
+    if (hours >= timeThresholds.critical) return 'text-red-500 bg-red-500/10 border-red-500/20';
+    if (hours >= timeThresholds.warning) return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
+    return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
+  };
+
   return (
     <div className="p-8 space-y-8">
+      {/* Config Modal para Umbrales */}
+      <AnimatePresence>
+        {isConfigOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+              className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl"
+            >
+              <h3 className="text-xl font-bold text-white mb-4">Configurar Umbrales (Horas)</h3>
+              <form onSubmit={handleSaveThresholds} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Advertencia (Amarillo)</label>
+                  <input type="number" value={timeThresholds.warning} onChange={e => setTimeThresholds({...timeThresholds, warning: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Crítico (Rojo)</label>
+                  <input type="number" value={timeThresholds.critical} onChange={e => setTimeThresholds({...timeThresholds, critical: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-white" />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <button type="button" onClick={() => setIsConfigOpen(false)} className="flex-1 py-2 bg-slate-800 text-white rounded-xl font-bold">Cancelar</button>
+                  <button type="submit" className="flex-1 py-2 bg-blue-600 text-white rounded-xl font-bold">Guardar</button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex justify-between items-end">
         <div>
@@ -147,6 +218,9 @@ export default function Dashboard() {
           <p className="text-slate-400 mt-1">Bienvenido de nuevo, {profile?.full_name || 'Encargado'}.</p>
         </div>
         <div className="flex gap-3">
+          <button onClick={() => setIsConfigOpen(true)} className="p-2 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors">
+            <ArrowUpRight className="w-5 h-5 rotate-45" /> {/* Simulating a config icon or settings */}
+          </button>
           <div className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm font-medium flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full animate-pulse ${loading ? 'bg-orange-500' : 'bg-emerald-500'}`}></span>
             {loading ? 'Sincronizando...' : 'Real-time Sync Active'}
@@ -173,34 +247,35 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Activity */}
+        {/* Monitoreo de Respuesta (SLA) */}
         <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-white">Actividad Reciente</h3>
-            <button 
-              onClick={() => window.location.href = '/orders'}
-              className="text-sm text-blue-400 hover:text-blue-300 font-medium"
-            >
-              Ver Kanban
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <Clock className="w-5 h-5 text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">Monitoreo de Respuesta (SLA)</h3>
+            </div>
           </div>
-          <div className="space-y-6">
-            {recentActivity.length > 0 ? (
-              recentActivity.map((item) => (
-                <div key={item.id} className="flex items-start gap-4 p-3 hover:bg-white/5 rounded-xl transition-colors">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 border border-slate-700">
-                    <User className="w-5 h-5" />
+          <div className="space-y-4">
+            {recentActivity.filter(a => a.status === 'open' || a.status === 'in_progress').map((item) => (
+              <div key={item.id} className="flex items-center justify-between p-4 bg-slate-950/50 border border-slate-800 rounded-xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white font-bold text-xs">
+                    {item.machine.charAt(0)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-200">
-                      <span className="font-bold text-white">{item.tech}</span> {item.action} <span className="font-bold text-white">{item.machine}</span>
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">{item.date} a las {item.time}</p>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">{item.machine}</h4>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest">{item.tech}</p>
                   </div>
                 </div>
-              ))
-            ) : (
-              <p className="text-slate-500 text-center py-10">Sin actividad reciente registrada.</p>
+                <div className={`px-4 py-2 rounded-lg border text-xs font-bold ${getSLAColor(item.raw_date)}`}>
+                  {Math.floor((new Date() - new Date(item.raw_date)) / (1000 * 60 * 60))}h {Math.floor(((new Date() - new Date(item.raw_date)) / (1000 * 60)) % 60)}m abierto
+                </div>
+              </div>
+            ))}
+            {recentActivity.filter(a => a.status === 'open' || a.status === 'in_progress').length === 0 && (
+              <p className="text-center py-10 text-slate-500 text-sm italic">No hay órdenes abiertas actualmente.</p>
             )}
           </div>
         </div>
