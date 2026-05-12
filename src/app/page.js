@@ -68,7 +68,7 @@ export default function Dashboard() {
       try {
         const { data, error } = await supabase
           .from('work_orders')
-          .select('*, profiles:technician_id(full_name)');
+          .select('*, profiles!technician_id(full_name)');
         if (error) throw error;
         allOrders = data || [];
         console.log("Dashboard Orders Loaded:", allOrders.length);
@@ -104,7 +104,7 @@ export default function Dashboard() {
       try {
         const { data, error } = await supabase
           .from('work_orders')
-          .select('id, description, status, created_at, machines(name), profiles:technician_id(full_name), reporter_name')
+          .select('id, description, status, created_at, machines(name), profiles!technician_id(full_name), reporter_name')
           .order('created_at', { ascending: false })
           .limit(10);
 

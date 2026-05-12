@@ -156,7 +156,7 @@ export default function KanbanBoard() {
         .select(`
           *,
           machines (name),
-          profiles (full_name),
+          profiles!technician_id (full_name),
           work_order_technicians (
             profiles (full_name)
           )
