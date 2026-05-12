@@ -22,18 +22,24 @@ export default function MyTasksPage() {
     
     setLoading(true);
     try {
-      // 1. Procesar preventivos pendientes primero
       await checkAndGenerateSchedules();
       
-      // 2. Obtener tareas donde el usuario está asignado (usando la nueva tabla intermedia)
+      // 1. Obtener IDs de las órdenes donde el usuario está asignado en la nueva tabla
+      const { data: teamAssignments } = await supabase
+        .from('work_order_technicians')
+        .select('work_order_id')
+        .eq('technician_id', user.id);
+      
+      const teamOrderIds = teamAssignments?.map(a => a.work_order_id) || [];
+
+      // 2. Obtener tareas (legacy o equipo)
       const { data, error } = await supabase
         .from('work_orders')
         .select(`
           *, 
-          machine:machines(name),
-          work_order_technicians!inner(technician_id)
+          machine:machines(name)
         `)
-        .eq('work_order_technicians.technician_id', user.id)
+        .or(`technician_id.eq.${user.id},id.in.(${teamOrderIds.length > 0 ? teamOrderIds.join(',') : '-1'})`)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;

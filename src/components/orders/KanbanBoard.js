@@ -156,7 +156,10 @@ export default function KanbanBoard() {
         .select(`
           *,
           machines (name),
-          profiles (full_name)
+          profiles (full_name),
+          work_order_technicians (
+            profiles (full_name)
+          )
         `)
         .order('created_at', { ascending: false });
       
@@ -337,11 +340,21 @@ export default function KanbanBoard() {
                   <p className="text-slate-500 text-sm line-clamp-2 mb-4 leading-relaxed">{order.description}</p>
                   
                   <div className="flex justify-between items-center pt-4 border-t border-slate-800">
-                    <div className="flex items-center gap-2 text-slate-400">
-                      <User className="w-3.5 h-3.5" />
-                      <span className="text-xs font-medium">{order.profiles?.full_name || 'Sin asignar'}</span>
+                    <div className="flex flex-wrap gap-2 text-slate-400">
+                      <User className="w-3.5 h-3.5 mt-0.5" />
+                      <div className="flex flex-wrap gap-1">
+                        {order.work_order_technicians && order.work_order_technicians.length > 0 ? (
+                          order.work_order_technicians.map((wt, idx) => (
+                            <span key={idx} className="text-[10px] font-medium bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                              {wt.profiles?.full_name || 'Anónimo'}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs font-medium">{order.profiles?.full_name || 'Sin asignar'}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-slate-500 text-[10px]">
+                    <div className="text-slate-500 text-[10px] shrink-0">
                       {order.created_at ? new Date(order.created_at).toLocaleDateString() : ''}
                     </div>
                   </div>
