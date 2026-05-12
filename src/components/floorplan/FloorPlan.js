@@ -306,13 +306,14 @@ export default function FloorPlan() {
           animate={{ scale, x: position.x, y: position.y }}
           style={{ 
             backgroundImage: `url('${planImage}')`,
-            backgroundSize: 'contain',
+            backgroundSize: '100% 100%',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'center',
             width: isFullscreen ? '100vw' : '100%',
             height: isFullscreen ? '100vh' : '100%',
             minWidth: '1000px',
-            minHeight: '600px'
+            minHeight: '600px',
+            aspectRatio: '1440/900'
           }}
           onClick={handleFloorClick}
         >
@@ -329,11 +330,10 @@ export default function FloorPlan() {
               className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
               style={{ left: `${machine.x_pos}%`, top: `${machine.y_pos}%` }}
             >
-              <div className={`relative w-8 h-8 rounded-full border-2 border-white shadow-2xl flex items-center justify-center font-bold text-[8px] text-white ${
+              <div className={`relative w-6 h-6 rounded-full border-2 border-white shadow-lg ${
                 machine.status === 'failure' ? 'bg-red-500' : 
                 machine.status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500'
               }`}>
-                {machine.id}
                 {machine.status === 'failure' && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-50"></div>}
               </div>
             </motion.button>
