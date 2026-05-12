@@ -266,18 +266,18 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex justify-between items-end mb-4">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-8">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-extrabold text-white tracking-tight">Dashboard Overview</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl md:text-4xl font-extrabold text-white tracking-tight">Dashboard Overview</h1>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Live Sync</span>
             </div>
           </div>
-          <p className="text-slate-400 mt-2">Monitoreo de mantenimiento y métricas operativas en tiempo real.</p>
+          <p className="text-slate-400 mt-2 text-sm md:text-base">Monitoreo de mantenimiento y métricas operativas en tiempo real.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 md:gap-3">
           <button onClick={() => setIsConfigOpen(true)} title="Configurar SLA" className="p-3 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-400 hover:text-white transition-colors group">
             <Clock className="w-5 h-5 group-hover:rotate-12 transition-transform" />
           </button>
