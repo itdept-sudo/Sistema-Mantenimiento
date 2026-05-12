@@ -16,11 +16,26 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
   useEffect(() => {
     if (isOpen && isAdmin) {
       const fetchTechnicians = async () => {
-        const { data } = await supabase
+        // Fetch technicians
+        const { data: techs } = await supabase
           .from('profiles')
           .select('id, full_name')
           .eq('role', 'technician');
-        if (data) setTechnicians(data);
+        
+        if (techs) {
+          // Fetch active counts for all technicians in one go
+          const { data: counts } = await supabase
+            .from('work_orders')
+            .select('technician_id')
+            .not('status', 'in', '("closed","resolved")');
+          
+          const techWithCounts = techs.map(t => {
+            const activeCount = counts?.filter(c => c.technician_id === t.id).length || 0;
+            return { ...t, activeCount };
+          });
+
+          setTechnicians(techWithCounts);
+        }
       };
       fetchTechnicians();
     }
@@ -120,7 +135,9 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
               >
                 <option value="">-- Seleccionar Técnico para Asignar --</option>
                 {technicians.map(tech => (
-                  <option key={tech.id} value={tech.id}>{tech.full_name}</option>
+                  <option key={tech.id} value={tech.id}>
+                    {tech.full_name} ({tech.activeCount} tareas activas)
+                  </option>
                 ))}
               </select>
             </div>
