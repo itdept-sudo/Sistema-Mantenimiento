@@ -23,14 +23,17 @@ export default function Dashboard() {
   ]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [inventoryAlerts, setInventoryAlerts] = useState([]);
+  const [techRanking, setTechRanking] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       
-      // 1. Fetch Work Orders for Stats
-      const { data: orders } = await supabase.from('work_orders').select('*');
+      // 1. Fetch Work Orders for Stats and Ranking
+      const { data: orders } = await supabase
+        .from('work_orders')
+        .select('*, profiles(full_name)');
       
       // 2. Fetch Machines for Availability
       const { data: machines } = await supabase.from('machines').select('status');
@@ -68,6 +71,23 @@ export default function Dashboard() {
           { name: 'Completadas (semana)', value: weeklyCompleted.toString(), icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
           { name: 'Disponibilidad Planta', value: `${availability}%`, icon: Activity, color: 'text-purple-400', bg: 'bg-purple-400/10' },
         ]);
+
+        // Calculate Tech Ranking
+        const closedOrders = orders.filter(o => o.status === 'closed' || o.status === 'resolved');
+        const rankingMap = {};
+        closedOrders.forEach(o => {
+          const techName = o.profiles?.full_name || 'Sin nombre';
+          if (o.technician_id) {
+            rankingMap[techName] = (rankingMap[techName] || 0) + 1;
+          }
+        });
+
+        const rankingArray = Object.entries(rankingMap)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+        
+        setTechRanking(rankingArray);
       }
 
       if (activities) {
@@ -174,13 +194,51 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Tech Ranking */}
+        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 flex flex-col">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-orange-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-white">Ranking de Técnicos</h3>
+          </div>
+          <div className="flex-1 space-y-6">
+            {techRanking.length > 0 ? (
+              techRanking.map((tech, index) => (
+                <div key={tech.name} className="space-y-2">
+                  <div className="flex justify-between items-end">
+                    <p className="text-sm font-medium text-slate-200 flex items-center gap-2">
+                      <span className="text-[10px] w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700 text-slate-400">
+                        {index + 1}
+                      </span>
+                      {tech.name}
+                    </p>
+                    <span className="text-xs font-bold text-orange-400">{tech.count} resueltas</span>
+                  </div>
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="bg-gradient-to-r from-orange-600 to-orange-400 h-full rounded-full transition-all duration-1000"
+                      style={{ width: `${(tech.count / (techRanking[0]?.count || 1)) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 opacity-30">
+                <User className="w-12 h-12 mb-2" />
+                <p className="text-sm">Sin datos de resolución</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Inventory Alerts */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+        <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 lg:col-span-3">
           <div className="flex items-center gap-2 mb-6">
             <PackageSearch className="w-5 h-5 text-blue-400" />
-            <h3 className="text-lg font-semibold text-white">Alertas de Inventario</h3>
+            <h3 className="text-lg font-semibold text-white">Alertas de Inventario Crítico</h3>
           </div>
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {inventoryAlerts.length > 0 ? (
               inventoryAlerts.map((item) => (
                 <div key={item.name} className="p-4 bg-red-500/5 border border-red-500/10 rounded-xl">
@@ -198,18 +256,20 @@ export default function Dashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8">
+              <div className="col-span-3 text-center py-8">
                 <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-20" />
                 <p className="text-slate-500 text-xs">Inventario saludable</p>
               </div>
             )}
           </div>
-          <button 
-            onClick={() => window.location.href = '/inventory'}
-            className="w-full mt-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-semibold transition-colors"
-          >
-            Gestionar Stock
-          </button>
+          <div className="mt-6 flex justify-end">
+            <button 
+              onClick={() => window.location.href = '/inventory'}
+              className="py-3 px-8 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-semibold transition-colors"
+            >
+              Gestionar Stock
+            </button>
+          </div>
         </div>
       </div>
     </div>
