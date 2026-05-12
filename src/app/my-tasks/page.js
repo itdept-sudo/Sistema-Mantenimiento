@@ -17,55 +17,46 @@ export default function MyTasksPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('corrective'); // 'corrective', 'preventive' o 'history'
 
-  const fetchMyTasks = async (forceAll = false) => {
-    if (!supabase) return;
-    
-    let currentUserId = user?.id;
-    if (!currentUserId) {
-      const { data: { session } } = await supabase.auth.getSession();
-      currentUserId = session?.user?.id;
-    }
-
-    if (!currentUserId) {
-      setLoading(false);
-      return;
-    }
+  const fetchMyTasks = async () => {
+    if (!supabase || !user?.id) return;
     
     setLoading(true);
     try {
       // 1. Procesar preventivos pendientes primero
-      const generatedNew = await checkAndGenerateSchedules();
+      await checkAndGenerateSchedules();
       
-      // 2. Obtener tareas
-      let query = supabase.from('work_orders').select(`*, machine:machines(name)`);
-      
-      if (!forceAll) {
-        query = query.eq('technician_id', currentUserId);
-      }
-
-      const { data, error } = await query.order('updated_at', { ascending: false });
+      // 2. Obtener tareas donde el usuario está asignado (usando la nueva tabla intermedia)
+      const { data, error } = await supabase
+        .from('work_orders')
+        .select(`
+          *, 
+          machine:machines(name),
+          work_order_technicians!inner(technician_id)
+        `)
+        .eq('work_order_technicians.technician_id', user.id)
+        .order('updated_at', { ascending: false });
 
       if (error) throw error;
       if (data) {
         setTasks(data);
-        if (forceAll) alert(`Escaneo completado. Se encontraron ${data.length} órdenes en total en la base de datos.`);
       }
     } catch (error) {
       console.error("MyTasks Error:", error);
-      alert("Error de conexión: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!user) return;
+
     fetchMyTasks();
     
-    // Suscribirse a cambios en TIEMPO REAL para que aparezcan las órdenes sin refrescar
+    // Suscribirse a cambios en TIEMPO REAL
     const channel = supabase
       .channel('technician-orders')
       .on('postgres_changes', 
-          { event: '*', table: 'work_orders', filter: `technician_id=eq.${user?.id}` }, 
+          { event: '*', table: 'work_orders' }, 
           () => fetchMyTasks())
       .subscribe();
 
