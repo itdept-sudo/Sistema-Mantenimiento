@@ -22,7 +22,7 @@ export default function MyTasksPage() {
     
     setLoading(true);
     try {
-      await checkAndGenerateSchedules();
+      checkAndGenerateSchedules(); // Correr en segundo plano sin bloquear
       
       // 1. Obtener IDs de las órdenes donde el usuario está asignado en la nueva tabla
       const { data: teamAssignments } = await supabase

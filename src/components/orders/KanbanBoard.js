@@ -176,7 +176,11 @@ export default function KanbanBoard() {
       fetchOrders();
       fetchMachines();
       fetchSettings();
-      checkAndGenerateSchedules(); // Revisar preventivos al entrar
+      
+      // Ejecutar revisión de preventivos en segundo plano después de cargar lo principal
+      setTimeout(() => {
+        checkAndGenerateSchedules();
+      }, 1000);
 
       const channel = supabase
         .channel('orders-updates')
