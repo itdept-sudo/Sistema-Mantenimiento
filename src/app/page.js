@@ -64,10 +64,13 @@ export default function Dashboard() {
       setLoading(true);
       
       // 1. Fetch Work Orders for Stats and Ranking
-      const { data: orders } = await supabase
+      const { data: orders, error: ordersError } = await supabase
         .from('work_orders')
-        .select('*, profiles:technician_id(full_name)');
+        .select('*, profiles(full_name)');
       
+      if (ordersError) console.error("Orders Fetch Error:", ordersError);
+      console.log("Dashboard Orders:", orders);
+
       // 2. Fetch Machines for Availability
       const { data: machines } = await supabase.from('machines').select('status');
       
@@ -80,15 +83,18 @@ export default function Dashboard() {
         .limit(3);
 
       // 4. Fetch Recent Activity
-      const { data: activities } = await supabase
+      const { data: activities, error: actError } = await supabase
         .from('work_orders')
-        .select('id, description, status, created_at, machines(name), profiles:technician_id(full_name), reporter_name')
+        .select('id, description, status, created_at, machines(name), profiles(full_name), reporter_name')
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10); // Aumentamos el límite para tener más chance de ver abiertas
+
+      if (actError) console.error("Activities Fetch Error:", actError);
+      console.log("Dashboard Activities:", activities);
 
       if (orders && machines) {
         const openOrders = orders.filter(o => o.status === 'open').length;
-        const urgentOrders = orders.filter(o => o.priority === 'urgent' && o.status !== 'closed').length;
+        const urgentOrders = orders.filter(o => o.priority === 'urgent' && (o.status !== 'closed' && o.status !== 'resolved')).length;
         
         const now = new Date();
         const oneWeekAgo = new Date(); oneWeekAgo.setDate(now.getDate() - 7);
@@ -119,7 +125,7 @@ export default function Dashboard() {
 
         const rankingMap = {};
         filteredForRanking.forEach(o => {
-          const techName = o.profiles?.full_name || 'Sin nombre';
+          const techName = o.profiles?.full_name || 'Sin asignar';
           if (o.technician_id) {
             rankingMap[techName] = (rankingMap[techName] || 0) + 1;
           }
@@ -137,7 +143,7 @@ export default function Dashboard() {
         const formatted = activities.map(act => ({
           id: act.id,
           tech: act.profiles?.full_name || act.reporter_name || 'Sistema',
-          action: act.status === 'open' ? 'reportó falla en' : act.status === 'in_progress' ? 'inició reparación en' : 'actualizó',
+          action: act.status === 'open' ? 'reportó falla' : act.status === 'in_progress' ? 'en reparación' : 'actualizó',
           machine: act.machines?.name || 'Máquina desconocida',
           time: new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           date: new Date(act.created_at).toLocaleDateString(),
