@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { X, Cpu, Hash, Activity, Truck, Trash2, Save, Info, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Cpu, Hash, Activity, Truck, Trash2, Save, Info, Upload, Image as ImageIcon, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function MachineModal({ isOpen, onClose, machine = null, onSuccess }) {

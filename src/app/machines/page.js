@@ -31,6 +31,7 @@ export default function MachinesPage() {
   const [selectedMachine, setSelectedMachine] = useState(null);
 
   const fetchMachines = async () => {
+    if (!supabase) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -48,6 +49,7 @@ export default function MachinesPage() {
   };
 
   useEffect(() => {
+    if (!supabase) return;
     fetchMachines();
 
     const channel = supabase.channel('machines-sync')
