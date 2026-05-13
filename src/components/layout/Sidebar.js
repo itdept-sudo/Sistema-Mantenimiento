@@ -12,7 +12,8 @@ import {
   Settings,
   LogOut,
   Users,
-  X
+  X,
+  Cpu
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
