@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
-import { X, Calendar, User, Tag, AlertCircle, CheckCircle2, UserPlus } from 'lucide-react';
+import { X, Calendar, User, Tag, AlertCircle, CheckCircle2, UserPlus, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
@@ -209,6 +209,28 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
             <div>
               <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 tracking-widest">Descripción del Reporte</h4>
               <p className="text-slate-300 leading-relaxed italic">"{task.description}"</p>
+              
+              {task.machines?.manual_url && (
+                <div className="mt-6 p-4 bg-blue-600/10 border border-blue-600/20 rounded-2xl flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                      <BookOpen className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-white uppercase tracking-tighter">Manual Técnico Disponible</p>
+                      <p className="text-[10px] text-slate-500">Consultar especificaciones y diagramas.</p>
+                    </div>
+                  </div>
+                  <a 
+                    href={task.machines.manual_url} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all"
+                  >
+                    Abrir Manual
+                  </a>
+                </div>
+              )}
             </div>
             {task.photo_urls && task.photo_urls.length > 0 && (
               <div className="pt-4 border-t border-slate-800/50">

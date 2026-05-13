@@ -15,10 +15,14 @@ import {
   CheckCircle2,
   Filter,
   RefreshCw,
-  Box
+  Box,
+  Database,
+  BookOpen,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MachineModal from '@/components/inventory/MachineModal';
+import MachineModelCatalog from '@/components/inventory/MachineModelCatalog';
 
 export default function MachinesPage() {
   const [machines, setMachines] = useState([]);
@@ -28,6 +32,7 @@ export default function MachinesPage() {
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [selectedMachine, setSelectedMachine] = useState(null);
 
   const fetchMachines = async () => {
@@ -76,7 +81,7 @@ export default function MachinesPage() {
   const categories = ['All', 'Producción', 'Montacargas', 'Servicios'];
 
   return (
-    <div className="p-4 md:p-8 min-h-screen bg-slate-950 flex flex-col gap-6">
+    <div className="p-4 md:p-8 min-h-screen bg-slate-950 flex flex-col gap-6 overflow-hidden">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
@@ -91,12 +96,20 @@ export default function MachinesPage() {
           </div>
         </div>
         
-        <button 
-          onClick={() => { setSelectedMachine(null); setIsModalOpen(true); }}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold shadow-xl shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
-        >
-          <Plus className="w-5 h-5" /> Agregar Equipo
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setIsCatalogOpen(true)}
+            className="bg-slate-900 border border-slate-800 hover:border-indigo-500/50 text-slate-300 px-6 py-3 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
+          >
+            <Database className="w-5 h-5 text-indigo-400" /> Catálogo Modelos
+          </button>
+          <button 
+            onClick={() => { setSelectedMachine(null); setIsModalOpen(true); }}
+            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold shadow-xl shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <Plus className="w-5 h-5" /> Agregar Equipo
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -184,6 +197,12 @@ export default function MachinesPage() {
                   }`}>
                     {m.status === 'operational' ? 'Operativo' : m.status === 'failure' ? 'En Paro' : 'Mantenimiento'}
                   </div>
+
+                  {m.manual_url && (
+                    <div className="absolute bottom-3 right-3 p-2 bg-slate-900/80 rounded-xl text-blue-400 border border-blue-500/30 shadow-lg backdrop-blur-sm" title="Manual Técnico Disponible">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -217,6 +236,11 @@ export default function MachinesPage() {
         onClose={() => setIsModalOpen(false)}
         machine={selectedMachine}
         onSuccess={fetchMachines}
+      />
+
+      <MachineModelCatalog 
+        isOpen={isCatalogOpen}
+        onClose={() => setIsCatalogOpen(false)}
       />
     </div>
   );
