@@ -1,21 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { X, Cpu, Hash, Activity, Truck, Trash2, Save, Info } from 'lucide-react';
+import { X, Cpu, Hash, Activity, Truck, Trash2, Save, Info, Upload, Image as ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function MachineModal({ isOpen, onClose, machine = null, onSuccess }) {
   const [formData, setFormData] = useState({
     name: '',
     status: 'operational',
-    category: 'Producción', // Fixed asset
+    category: 'Producción',
     serial_number: '',
     description: '',
     brand: '',
-    model: ''
+    model: '',
+    image_url: ''
   });
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (machine) {
@@ -26,7 +29,8 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
         serial_number: machine.serial_number || '',
         description: machine.description || '',
         brand: machine.brand || '',
-        model: machine.model || ''
+        model: machine.model || '',
+        image_url: machine.image_url || ''
       });
     } else {
       setFormData({
@@ -36,10 +40,40 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
         serial_number: '',
         description: '',
         brand: '',
-        model: ''
+        model: '',
+        image_url: ''
       });
     }
   }, [machine, isOpen]);
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `machines/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('machines')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('machines')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, image_url: publicUrl }));
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Error al subir la imagen. Asegúrate de que el bucket "machines" existe y es público.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -117,7 +151,46 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            {/* Image Upload Area */}
+            <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl p-6 bg-slate-950/50 hover:bg-slate-950 transition-all group relative overflow-hidden">
+              {formData.image_url ? (
+                <>
+                  <img src={formData.image_url} alt="Preview" className="w-full h-48 object-contain rounded-xl" />
+                  <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
+                    <button 
+                      type="button"
+                      onClick={() => fileInputRef.current.click()}
+                      className="bg-white text-slate-900 px-4 py-2 rounded-xl font-bold flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" /> Cambiar Imagen
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button 
+                  type="button"
+                  onClick={() => fileInputRef.current.click()}
+                  className="flex flex-col items-center gap-3 text-slate-500 hover:text-blue-400 transition-colors"
+                >
+                  <div className="p-4 bg-slate-900 rounded-2xl group-hover:bg-blue-500/10 group-hover:text-blue-400 transition-all">
+                    {uploading ? <RefreshCw className="w-8 h-8 animate-spin" /> : <ImageIcon className="w-8 h-8" />}
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold">Cargar Fotografía</p>
+                    <p className="text-[10px] uppercase tracking-widest mt-1">PNG, JPG hasta 5MB</p>
+                  </div>
+                </button>
+              )}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImageUpload} 
+                accept="image/*" 
+                className="hidden" 
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
@@ -204,7 +277,7 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
               </button>
               <button 
                 type="submit" 
-                disabled={loading}
+                disabled={loading || uploading}
                 className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-900/30 transition-all flex items-center justify-center gap-2"
               >
                 {loading ? (

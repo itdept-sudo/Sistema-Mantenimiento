@@ -161,42 +161,49 @@ export default function MachinesPage() {
               exit={{ opacity: 0, scale: 0.9 }}
               key={m.id}
               onClick={() => { setSelectedMachine(m); setIsModalOpen(true); }}
-              className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 hover:border-blue-500/50 transition-all group cursor-pointer"
+              className="bg-slate-900/50 border border-slate-800 rounded-3xl p-6 hover:border-blue-500/50 transition-all group cursor-pointer flex flex-col h-full shadow-lg hover:shadow-blue-900/10"
             >
               <div className="flex justify-between items-start mb-6">
-                <div className={`p-4 rounded-2xl ${
-                  m.category === 'Montacargas' ? 'bg-orange-500/10 text-orange-400' : 'bg-blue-500/10 text-blue-400'
-                }`}>
-                  {m.category === 'Montacargas' ? <Truck className="w-8 h-8" /> : <Cpu className="w-8 h-8" />}
-                </div>
-                <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                  m.status === 'operational' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
-                  m.status === 'failure' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
-                  'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
-                }`}>
-                  {m.status === 'operational' ? 'Operativo' : m.status === 'failure' ? 'En Paro' : 'Mantenimiento'}
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-950/50 border border-slate-800 flex items-center justify-center">
+                  {m.image_url ? (
+                    <img src={m.image_url} alt={m.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                  ) : (
+                    <div className={`p-4 rounded-2xl ${
+                      m.category === 'Montacargas' ? 'bg-orange-500/10 text-orange-400' : 'bg-blue-500/10 text-blue-400'
+                    }`}>
+                      {m.category === 'Montacargas' ? <Truck className="w-10 h-10" /> : <Cpu className="w-10 h-10" />}
+                    </div>
+                  )}
+                  
+                  <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border backdrop-blur-md ${
+                    m.status === 'operational' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                    m.status === 'failure' ? 'bg-red-500/20 text-red-500 border-red-500/30' :
+                    'bg-yellow-500/20 text-yellow-500 border-yellow-500/30'
+                  }`}>
+                    {m.status === 'operational' ? 'Operativo' : m.status === 'failure' ? 'En Paro' : 'Mantenimiento'}
+                  </div>
                 </div>
               </div>
 
-              <div>
+              <div className="flex-1">
                 <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{m.name}</h3>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[10px] text-slate-500 font-mono uppercase bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{m.brand || 'Marca N/A'}</span>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50">{m.category || 'Equipo'}</span>
                   <span className="text-slate-700">•</span>
-                  <span className="text-[10px] text-slate-500 font-mono uppercase">{m.serial_number || 'S/N N/A'}</span>
+                  <span className="text-[10px] text-slate-500 font-mono uppercase">{m.brand || 'Marca'} {m.serial_number || 'S/N'}</span>
                 </div>
               </div>
 
               <div className="mt-6 pt-6 border-t border-slate-800/50 flex justify-between items-center">
                 <div className="flex items-center gap-2 text-slate-400">
                   <MapPin className="w-4 h-4 text-slate-600" />
-                  <span className="text-xs font-medium">
-                    {m.x_pos > 0 ? 'Ubicado en Plano' : 'Sin Ubicación'}
+                  <span className="text-[10px] font-bold uppercase tracking-tighter">
+                    {m.x_pos > 0 ? 'Ubicado en Planta' : 'Sin Ubicación'}
                   </span>
                 </div>
-                <button className="p-2 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-all">
+                <div className="p-2 bg-slate-800/50 group-hover:bg-blue-600 group-hover:text-white rounded-xl text-slate-500 transition-all">
                   <Settings className="w-4 h-4" />
-                </button>
+                </div>
               </div>
             </motion.div>
           ))}
