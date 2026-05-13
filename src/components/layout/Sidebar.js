@@ -37,8 +37,14 @@ const navItems = [
 export default function Sidebar({ isOpen, onClose }) {
   const pathname = usePathname();
   const { profile, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
-  const userRole = profile?.role || (typeof window !== 'undefined' ? localStorage.getItem('user_role') : null) || 'technician';
+  // Use a stable role for the initial render to prevent hydration mismatch
+  const userRole = (mounted && (profile?.role || (typeof window !== 'undefined' ? localStorage.getItem('user_role') : null))) || 'technician';
 
   const filteredItems = navItems.filter(item => {
     if (!item.roles) return true;
