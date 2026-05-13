@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import InventoryModal from '@/components/inventory/InventoryModal';
 import StockAdjustmentModal from '@/components/inventory/StockAdjustmentModal';
+import InventoryHistoryModal from '@/components/inventory/InventoryHistoryModal';
 
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -29,6 +30,7 @@ export default function InventoryPage() {
   // Modals state
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
   const fetchInventory = async () => {
@@ -55,6 +57,7 @@ export default function InventoryPage() {
     // Real-time subscription
     const channel = supabase.channel('inventory-sync')
       .on('postgres_changes', { event: '*', table: 'inventory' }, () => fetchInventory())
+      .on('postgres_changes', { event: '*', table: 'inventory_logs' }, () => fetchInventory())
       .subscribe();
 
     return () => supabase.removeChannel(channel);
@@ -226,15 +229,22 @@ export default function InventoryPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button 
-                          onClick={() => { setSelectedItem(item); setIsStockModalOpen(true); }}
-                          className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 rounded-xl transition-all shadow-sm"
-                          title="Ajustar Stock"
+                          onClick={() => { setSelectedItem(item); setIsHistoryModalOpen(true); }}
+                          className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-blue-400 rounded-xl transition-all shadow-sm"
+                          title="Ver Historial"
                         >
                           <History className="w-5 h-5" />
                         </button>
                         <button 
+                          onClick={() => { setSelectedItem(item); setIsStockModalOpen(true); }}
+                          className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 rounded-xl transition-all shadow-sm"
+                          title="Ajustar Stock"
+                        >
+                          <RefreshCw className="w-5 h-5" />
+                        </button>
+                        <button 
                           onClick={() => { setSelectedItem(item); setIsItemModalOpen(true); }}
-                          className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-blue-400 rounded-xl transition-all shadow-sm"
+                          className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all shadow-sm"
                           title="Editar Detalle"
                         >
                           <Edit className="w-5 h-5" />
@@ -268,6 +278,12 @@ export default function InventoryPage() {
         onClose={() => setIsStockModalOpen(false)}
         item={selectedItem}
         onSuccess={fetchInventory}
+      />
+
+      <InventoryHistoryModal 
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        item={selectedItem}
       />
     </div>
   );
