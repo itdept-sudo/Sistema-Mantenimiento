@@ -118,12 +118,19 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+
+    // Limpiar datos para evitar errores de tipo UUID en Postgres
+    const submissionData = {
+      ...formData,
+      model_id: formData.model_id === '' ? null : formData.model_id
+    };
+
     try {
       if (machine) {
-        const { error } = await supabase.from('machines').update(formData).eq('id', machine.id);
+        const { error } = await supabase.from('machines').update(submissionData).eq('id', machine.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('machines').insert([formData]);
+        const { error } = await supabase.from('machines').insert([submissionData]);
         if (error) throw error;
       }
       onSuccess();
