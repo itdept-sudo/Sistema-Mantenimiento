@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { 
   AlertTriangle, 
   CheckCircle2, 
@@ -15,7 +16,8 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [stats, setStats] = useState([
     { name: 'Órdenes Abiertas', value: '...', icon: Clock, color: 'text-blue-400', bg: 'bg-blue-400/10' },
     { name: 'Urgentes', value: '...', icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-400/10' },
@@ -29,6 +31,15 @@ export default function Dashboard() {
   const [timeThresholds, setTimeThresholds] = useState({ warning: 2, critical: 4 });
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Redirección de seguridad para Técnicos
+  useEffect(() => {
+    if (!authLoading && profile) {
+      if (profile.role === 'technician') {
+        router.push('/my-tasks');
+      }
+    }
+  }, [profile, authLoading, router]);
 
   const fetchTimeSettings = async () => {
     try {
