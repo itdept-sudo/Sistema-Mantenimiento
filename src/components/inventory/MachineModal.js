@@ -173,24 +173,26 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
           <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
             
             {/* Template Selection */}
-            {!machine && (
-              <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 mb-6">
-                <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-                  <Database className="w-3 h-3" /> ¿Usar un modelo del catálogo?
-                </label>
-                <select 
-                  value={formData.model_id}
-                  onChange={e => handleModelChange(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-sm text-white focus:border-indigo-500 outline-none"
-                >
-                  <option value="">-- Ingreso manual (Sin plantilla) --</option>
-                  {models.map(m => (
-                    <option key={m.id} value={m.id}>{m.brand} - {m.model_name}</option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-slate-500 mt-2 italic">Seleccionar un modelo auto-rellenará marca, categoría y fotografía.</p>
-              </div>
-            )}
+            <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 mb-6">
+              <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                <Database className="w-3 h-3" /> {machine ? 'Vincular a un modelo del catálogo' : '¿Usar un modelo del catálogo?'}
+              </label>
+              <select 
+                value={formData.model_id}
+                onChange={e => handleModelChange(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-sm text-white focus:border-indigo-500 outline-none"
+              >
+                <option value="">-- Sin plantilla / Personalizado --</option>
+                {models.map(m => (
+                  <option key={m.id} value={m.id}>{m.brand} - {m.model_name}</option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-500 mt-2 italic">
+                {machine 
+                  ? 'Al cambiar el modelo, se actualizarán la marca, categoría y fotografía del equipo.' 
+                  : 'Seleccionar un modelo auto-rellenará marca, categoría y fotografía.'}
+              </p>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Left: Media & Docs */}
