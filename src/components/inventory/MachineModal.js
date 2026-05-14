@@ -16,7 +16,8 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
     model: '',
     image_url: '',
     model_id: '',
-    manual_url: ''
+    manual_url: '',
+    alias: ''
   });
 
   const [models, setModels] = useState([]);
@@ -47,7 +48,8 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
         model: machine.model || '',
         image_url: machine.image_url || '',
         model_id: machine.model_id || '',
-        manual_url: machine.manual_url || ''
+        manual_url: machine.manual_url || '',
+        alias: machine.alias || ''
       });
     } else {
       setFormData({
@@ -60,7 +62,8 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
         model: '',
         image_url: '',
         model_id: '',
-        manual_url: ''
+        manual_url: '',
+        alias: ''
       });
     }
   }, [machine, isOpen]);
@@ -238,15 +241,26 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
 
               {/* Right: Info */}
               <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre Identificador</label>
-                  <input 
-                    required
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm text-white focus:border-blue-500"
-                    placeholder="Ej: Inyectora 04"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre Técnico / ID</label>
+                    <input 
+                      required
+                      value={formData.name}
+                      onChange={e => setFormData({...formData, name: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-sm text-white focus:border-blue-500"
+                      placeholder="Ej: Gauntlen III"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Alias / Apodo (Planta)</label>
+                    <input 
+                      value={formData.alias || ''}
+                      onChange={e => setFormData({...formData, alias: e.target.value})}
+                      className="w-full bg-slate-950 border border-indigo-500/30 rounded-xl py-3 px-4 text-sm text-white focus:border-indigo-500 placeholder:text-slate-700"
+                      placeholder="Ej: Pulpo"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1">

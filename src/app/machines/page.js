@@ -66,6 +66,7 @@ export default function MachinesPage() {
 
   const filteredMachines = machines.filter(m => {
     const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (m.alias && m.alias.toLowerCase().includes(searchTerm.toLowerCase())) ||
                          (m.serial_number && m.serial_number.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = categoryFilter === 'All' || m.category === categoryFilter;
     return matchesSearch && matchesCategory;
@@ -142,7 +143,7 @@ export default function MachinesPage() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input 
             type="text" 
-            placeholder="Buscar por nombre o serie..." 
+            placeholder="Buscar por nombre, alias o serie..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-blue-500 transition-all"
@@ -207,11 +208,23 @@ export default function MachinesPage() {
               </div>
 
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors">{m.name}</h3>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors leading-tight">
+                      {m.name}
+                    </h3>
+                    {m.alias && (
+                      <p className="text-indigo-400 text-sm font-bold italic">
+                        "{m.alias}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-2 mt-3">
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50">{m.category || 'Equipo'}</span>
                   <span className="text-slate-700">•</span>
-                  <span className="text-[10px] text-slate-500 font-mono uppercase">{m.brand || 'Marca'} {m.serial_number || 'S/N'}</span>
+                  <span className="text-[10px] text-slate-500 font-mono uppercase truncate max-w-[150px]">{m.brand || 'Marca'} {m.serial_number || 'S/N'}</span>
                 </div>
               </div>
 

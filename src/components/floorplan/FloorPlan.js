@@ -232,7 +232,9 @@ export default function FloorPlan() {
               >
                 <option value="">Ubicar máquina...</option>
                 {unmappedMachines.map(m => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
+                  <option key={m.id} value={m.id}>
+                    {m.name} {m.alias ? `"${m.alias}"` : ''}
+                  </option>
                 ))}
               </select>
             )}
@@ -352,6 +354,9 @@ export default function FloorPlan() {
               <div className="flex justify-between items-start mb-6 text-white">
                 <div>
                   <h3 className="text-xl font-bold">{selectedMachine.name}</h3>
+                  {selectedMachine.alias && (
+                    <p className="text-indigo-400 text-sm font-bold italic">"{selectedMachine.alias}"</p>
+                  )}
                   <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded mt-2 inline-block ${
                     selectedMachine.status === 'failure' ? 'bg-red-500/20 text-red-400' : 
                     selectedMachine.status === 'maintenance' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'

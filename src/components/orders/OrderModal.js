@@ -152,7 +152,9 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
             >
               <option value="">Selecciona una máquina...</option>
               {machines?.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
+                <option key={m.id} value={m.id}>
+                  {m.name} {m.alias ? `"${m.alias}"` : ''}
+                </option>
               ))}
             </select>
           </div>
