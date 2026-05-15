@@ -315,7 +315,7 @@ export default function FloorPlan() {
                 <div className="flex flex-col items-center">
                   <div className={`relative w-6 h-6 rounded-full border-2 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-500 ${
                     status === 'failure' ? 'bg-red-500' : 
-                    status === 'maintenance' ? 'bg-yellow-500' : 'bg-blue-600/80'
+                    status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500/80'
                   }`}>
                     {status === 'failure' && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-40"></div>}
                   </div>
