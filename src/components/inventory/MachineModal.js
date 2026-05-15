@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
-import { X, Cpu, Hash, Activity, Truck, Trash2, Save, Info, Upload, Image as ImageIcon, RefreshCw, FileText, BookOpen, Database } from 'lucide-react';
+import { supabase, itamSupabase } from '@/lib/supabase';
+import { X, Cpu, Hash, Activity, Truck, Trash2, Save, Info, Upload, Image as ImageIcon, RefreshCw, FileText, BookOpen, Database, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function MachineModal({ isOpen, onClose, machine = null, onSuccess }) {
@@ -17,10 +17,12 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
     image_url: '',
     model_id: '',
     manual_url: '',
-    alias: ''
+    alias: '',
+    area_id: ''
   });
 
   const [models, setModels] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingManual, setUploadingManual] = useState(false);
@@ -28,12 +30,20 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
   const manualInputRef = useRef(null);
 
   useEffect(() => {
-    const fetchModels = async () => {
+    const fetchData = async () => {
       if (!supabase) return;
-      const { data } = await supabase.from('machine_models').select('*').order('brand');
-      setModels(data || []);
+      
+      // Fetch models from MaintOps
+      const { data: mData } = await supabase.from('machine_models').select('*').order('brand');
+      setModels(mData || []);
+
+      // Fetch areas from ITAM Desk
+      if (itamSupabase) {
+        const { data: aData } = await itamSupabase.from('areas').select('id, name').order('name');
+        setAreas(aData || []);
+      }
     };
-    if (isOpen) fetchModels();
+    if (isOpen) fetchData();
   }, [isOpen]);
 
   useEffect(() => {
@@ -49,7 +59,8 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
         image_url: machine.image_url || '',
         model_id: machine.model_id || '',
         manual_url: machine.manual_url || '',
-        alias: machine.alias || ''
+        alias: machine.alias || '',
+        area_id: machine.area_id || ''
       });
     } else {
       setFormData({
@@ -63,7 +74,8 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
         image_url: '',
         model_id: '',
         manual_url: '',
-        alias: ''
+        alias: '',
+        area_id: ''
       });
     }
   }, [machine, isOpen]);
@@ -297,6 +309,22 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
                       <option value="Servicios">Servicios</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                    <MapPin className="w-3 h-3" /> Área de Producción (ITAM)
+                  </label>
+                  <select 
+                    value={formData.area_id || ''}
+                    onChange={e => setFormData({...formData, area_id: e.target.value})}
+                    className="w-full bg-slate-950 border border-emerald-500/20 rounded-xl py-3 px-4 text-sm text-white focus:border-emerald-500 outline-none"
+                  >
+                    <option value="">Selecciona área...</option>
+                    {areas.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-1">

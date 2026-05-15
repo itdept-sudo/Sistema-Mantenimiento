@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
-import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Upload, Settings, Maximize, Minimize } from 'lucide-react';
+import { supabase, itamSupabase } from '@/lib/supabase';
+import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Upload, Settings, Maximize, Minimize, Activity as ActivityIcon, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderModal from '@/components/orders/OrderModal';
 import { useAuth } from '@/lib/AuthContext';
@@ -12,14 +12,24 @@ export default function FloorPlan() {
   const isAdmin = profile?.role === 'admin' || profile?.role === 'supervisor';
   
   const [machines, setMachines] = useState([]);
+  const [areaIndicators, setAreaIndicators] = useState([]);
+  const [itamAreas, setItamAreas] = useState([]);
   const [selectedMachine, setSelectedMachine] = useState(null);
+  
   const [isMappingMode, setIsMappingMode] = useState(false);
+  const [mappingType, setMappingType] = useState('machine'); // 'machine' or 'area'
   const [mappingMachineId, setMappingMachineId] = useState(null);
+  const [mappingAreaId, setMappingAreaId] = useState(null);
+
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [machineOrders, setMachineOrders] = useState([]);
   const [planImage, setPlanImage] = useState('/floorplan.png');
   const [isUploading, setIsUploading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  
   const fileInputRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -27,20 +37,33 @@ export default function FloorPlan() {
     if (!supabase || !user) return;
     
     try {
-      const { data: machinesData, error: mError } = await supabase
+      // 1. Fetch Machines
+      const { data: machinesData } = await supabase
         .from('machines')
         .select('*')
         .order('id', { ascending: true });
-      
-      if (mError) throw mError;
       if (machinesData) setMachines(machinesData);
 
+      // 2. Fetch Area Indicators (Positions)
+      const { data: indicators } = await supabase
+        .from('area_indicators')
+        .select('*');
+      if (indicators) setAreaIndicators(indicators);
+
+      // 3. Fetch ITAM Areas (Names)
+      if (itamSupabase) {
+        const { data: areas } = await itamSupabase.from('areas').select('id, name');
+        setItamAreas(areas || []);
+      }
+
+      // 4. Plan Image from settings
       const { data: settings } = await supabase
         .from('settings')
         .select('*')
         .eq('key', 'floor_plan_image')
-        .single();
+        .maybeSingle();
       if (settings) setPlanImage(settings.value);
+
     } catch (error) {
       console.error("FloorPlan Error:", error);
     }
@@ -49,30 +72,13 @@ export default function FloorPlan() {
   useEffect(() => {
     fetchData();
 
-    // SUSCRIPCIÓN REFORZADA EN TIEMPO REAL
-    const channel = supabase
-      .channel('floor-updates-realtime')
-      .on('postgres_changes', 
-        { event: '*', table: 'machines', schema: 'public' }, 
-        (payload) => {
-          console.log("PLAN: Cambio en máquina detectado!", payload);
-          fetchData();
-        }
-      )
-      .on('postgres_changes', 
-        { event: '*', table: 'settings', schema: 'public' }, 
-        (payload) => {
-          console.log("PLAN: Configuración actualizada!", payload);
-          fetchData();
-        }
-      )
-      .subscribe((status) => {
-        console.log("PLAN: Estado de conexión Realtime:", status);
-      });
+    const channel = supabase.channel('floor-updates-all')
+      .on('postgres_changes', { event: '*', table: 'machines' }, () => fetchData())
+      .on('postgres_changes', { event: '*', table: 'area_indicators' }, () => fetchData())
+      .on('postgres_changes', { event: '*', table: 'settings' }, () => fetchData())
+      .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => supabase.removeChannel(channel);
   }, [user]);
 
   useEffect(() => {
@@ -90,36 +96,29 @@ export default function FloorPlan() {
     }
   }, [selectedMachine]);
 
+  // Logic to determine Area LED Status (Aggregated)
+  const getAreaStatus = (areaId) => {
+    const machinesInArea = machines.filter(m => m.area_id === areaId);
+    if (machinesInArea.length === 0) return 'operational';
+    if (machinesInArea.some(m => m.status === 'failure')) return 'failure';
+    if (machinesInArea.some(m => m.status === 'maintenance')) return 'maintenance';
+    return 'operational';
+  };
+
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file || !supabase) return;
 
     setIsUploading(true);
-    const fileExt = file.name.split('.').pop();
-    const fileName = `floorplan-${Math.random()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    const fileName = `floorplan-${Math.random()}.png`;
 
     try {
-      const { error: uploadError } = await supabase.storage
-        .from('floor-plans')
-        .upload(filePath, file);
-
+      const { error: uploadError } = await supabase.storage.from('floor-plans').upload(fileName, file);
       if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('floor-plans')
-        .getPublicUrl(filePath);
-
-      const { error: settingsError } = await supabase
-        .from('settings')
-        .upsert({ key: 'floor_plan_image', value: publicUrl });
-
-      if (settingsError) throw settingsError;
-
+      const { data: { publicUrl } } = supabase.storage.from('floor-plans').getPublicUrl(fileName);
+      await supabase.from('settings').upsert({ key: 'floor_plan_image', value: publicUrl });
       setPlanImage(publicUrl);
-      alert("Plano actualizado correctamente.");
     } catch (error) {
-      alert("Error al subir el archivo.");
       console.error(error);
     } finally {
       setIsUploading(false);
@@ -127,68 +126,56 @@ export default function FloorPlan() {
   };
 
   const handleFloorClick = async (e) => {
-    if (!isMappingMode || !mappingMachineId) return;
+    if (!isMappingMode) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    const { error } = await supabase
-      .from('machines')
-      .update({ x_pos: x, y_pos: y })
-      .eq('id', mappingMachineId);
-
-    if (!error) setMappingMachineId(null);
+    if (mappingType === 'machine' && mappingMachineId) {
+      const { error } = await supabase.from('machines').update({ x_pos: x, y_pos: y }).eq('id', mappingMachineId);
+      if (!error) {
+        setMappingMachineId(null);
+        fetchData();
+      }
+    } else if (mappingType === 'area' && mappingAreaId) {
+      const areaName = itamAreas.find(a => a.id === mappingAreaId)?.name || 'Área';
+      const { error } = await supabase.from('area_indicators').upsert({ 
+        area_id: mappingAreaId, 
+        area_name: areaName,
+        x_pos: x, 
+        y_pos: y 
+      });
+      if (!error) {
+        setMappingAreaId(null);
+        fetchData();
+      }
+    }
   };
 
   const handleResetPosition = async (machineId) => {
     if (!confirm("¿Quitar esta máquina del plano?")) return;
-    const { error } = await supabase
-      .from('machines')
-      .update({ x_pos: 0, y_pos: 0 })
-      .eq('id', machineId);
-    
-    if (error) {
-      alert("No se pudo quitar la máquina: " + error.message);
-    } else {
-      setSelectedMachine(null);
-      fetchData();
-    }
+    await supabase.from('machines').update({ x_pos: 0, y_pos: 0 }).eq('id', machineId);
+    setSelectedMachine(null);
+    fetchData();
   };
 
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-
-  const handleZoom = (delta) => {
-    setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
-  };
-
-  const resetZoom = () => {
-    setScale(1);
-    setPosition({ x: 0, y: 0 });
-  };
+  const handleZoom = (delta) => setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
+  const resetZoom = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
 
   const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen().catch(err => {
-        alert(`Error al intentar pantalla completa: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
+    if (!document.fullscreenElement) containerRef.current?.requestFullscreen();
+    else document.exitFullscreen();
   };
 
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isFull = !!document.fullscreenElement;
-      setIsFullscreen(isFull);
-      if (isFull) resetZoom();
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    const cb = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', cb);
+    return () => document.removeEventListener('fullscreenchange', cb);
   }, []);
 
   const unmappedMachines = machines.filter(m => !m.x_pos || m.x_pos === 0);
+  const unmappedAreas = itamAreas.filter(a => !areaIndicators.find(i => i.area_id === a.id));
 
   return (
     <div 
@@ -202,40 +189,41 @@ export default function FloorPlan() {
       {!isFullscreen && (
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-white tracking-tight">Plano Interactivo</h2>
-            <p className="text-slate-400 mt-1">Gestión visual de planta en tiempo real.</p>
+            <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+              Plano Interactivo <Layers className="w-6 h-6 text-blue-500" />
+            </h2>
+            <p className="text-slate-400 mt-1">Monitoreo visual de máquinas y LEDs de área en tiempo real.</p>
           </div>
 
           <div className="flex gap-4 items-center">
-            {isAdmin && (
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors border border-slate-700 flex items-center gap-2"
-              >
-                {isUploading ? (
-                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    <Upload className="w-5 h-5" />
-                    <span className="text-xs font-semibold">Cargar Plano</span>
-                  </>
-                )}
-              </button>
+            {isMappingMode && isAdmin && (
+              <div className="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 gap-1">
+                <button 
+                  onClick={() => setMappingType('machine')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${mappingType === 'machine' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Máquinas
+                </button>
+                <button 
+                  onClick={() => setMappingType('area')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${mappingType === 'area' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Áreas LED
+                </button>
+              </div>
             )}
 
             {isMappingMode && isAdmin && (
               <select 
-                className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-700"
-                onChange={(e) => setMappingMachineId(e.target.value)}
-                value={mappingMachineId || ''}
+                className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm border border-slate-700 outline-none"
+                onChange={(e) => mappingType === 'machine' ? setMappingMachineId(e.target.value) : setMappingAreaId(e.target.value)}
+                value={(mappingType === 'machine' ? mappingMachineId : mappingAreaId) || ''}
               >
-                <option value="">Ubicar máquina...</option>
-                {unmappedMachines.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} {m.alias ? `"${m.alias}"` : ''}
-                  </option>
-                ))}
+                <option value="">{mappingType === 'machine' ? 'Ubicar máquina...' : 'Ubicar indicador de área...'}</option>
+                {mappingType === 'machine' 
+                  ? unmappedMachines.map(m => <option key={m.id} value={m.id}>{m.name} {m.alias ? `"${m.alias}"` : ''}</option>)
+                  : unmappedAreas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)
+                }
               </select>
             )}
             
@@ -243,10 +231,10 @@ export default function FloorPlan() {
               <button 
                 onClick={() => {
                   setIsMappingMode(!isMappingMode);
-                  if (isMappingMode) setMappingMachineId(null);
+                  if (isMappingMode) { setMappingMachineId(null); setMappingAreaId(null); }
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-                  isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300'
+                  isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300 border border-slate-700'
                 }`}
               >
                 <MapIcon className="w-4 h-4" />
@@ -259,7 +247,6 @@ export default function FloorPlan() {
 
       {/* Floating Controls Overlay */}
       <div className={`absolute z-50 flex flex-col gap-4 ${isFullscreen ? 'top-6 left-6' : 'top-32 right-12'}`}>
-        {/* Zoom Controls */}
         <div className="flex flex-col bg-slate-900/80 backdrop-blur-md border border-slate-700 p-1.5 rounded-2xl shadow-2xl">
           <button onClick={() => handleZoom(0.2)} className="p-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-all" title="Zoom +">
             <Plus className="w-5 h-5" />
@@ -272,31 +259,12 @@ export default function FloorPlan() {
           </button>
         </div>
 
-        {/* Fullscreen Button */}
         <button 
           onClick={toggleFullscreen}
           className="p-4 bg-blue-600 text-white rounded-2xl shadow-xl hover:bg-blue-500 transition-all active:scale-95"
         >
           {isFullscreen ? <Minimize className="w-6 h-6" /> : <Maximize className="w-6 h-6" />}
         </button>
-      </div>
-
-      {/* Legend - Floating bottom */}
-      <div className={`absolute z-40 bg-slate-900/80 backdrop-blur-md p-4 rounded-2xl border border-slate-800 shadow-2xl ${isFullscreen ? 'bottom-6 left-6' : 'bottom-12 left-12'}`}>
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Operativa</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Falla</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>
-            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">Manto</span>
-          </div>
-        </div>
       </div>
 
       {/* Map Container */}
@@ -319,6 +287,38 @@ export default function FloorPlan() {
           }}
           onClick={handleFloorClick}
         >
+          {/* Render Area LEDs */}
+          {areaIndicators.map((indicator) => {
+            const status = getAreaStatus(indicator.area_id);
+            return (
+              <motion.div
+                key={indicator.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-0"
+                style={{ left: `${indicator.x_pos}%`, top: `${indicator.y_pos}%` }}
+              >
+                <div className="flex flex-col items-center">
+                  <div className={`relative w-12 h-12 rounded-full border-4 border-slate-900 shadow-2xl transition-all duration-500 ${
+                    status === 'failure' ? 'bg-red-500' : 
+                    status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500/80'
+                  }`}>
+                    {status === 'failure' && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-40"></div>}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <ActivityIcon className="w-5 h-5 text-white/50" />
+                    </div>
+                  </div>
+                  <div className="mt-2 px-3 py-1 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-full shadow-lg">
+                    <span className="text-[9px] font-black text-white uppercase tracking-tighter whitespace-nowrap">
+                      {indicator.area_name}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+
+          {/* Render Machines */}
           {machines.filter(m => m.x_pos > 0).map((machine) => (
             <motion.button
               key={machine.id}
