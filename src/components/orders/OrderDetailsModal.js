@@ -12,20 +12,28 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }) {
   useEffect(() => {
     const fetchOrderDetails = async () => {
       if (!orderId || !isOpen) return;
-      setLoading(true);
       
-      const { data, error } = await supabase
-        .from('work_orders')
-        .select(`
-          *,
-          technician:profiles!work_orders_technician_id_fkey(full_name),
-          machine:machines(name, alias)
-        `)
-        .eq('id', orderId)
-        .single();
+      try {
+        setLoading(true);
+        console.log("Cargando detalles de orden:", orderId);
+        
+        const { data, error } = await supabase
+          .from('work_orders')
+          .select(`
+            *,
+            technician:technician_id(full_name),
+            machine:machine_id(name, alias)
+          `)
+          .eq('id', orderId)
+          .single();
 
-      if (data) setOrder(data);
-      setLoading(false);
+        if (error) throw error;
+        if (data) setOrder(data);
+      } catch (err) {
+        console.error("Error al cargar detalles de la orden:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchOrderDetails();
