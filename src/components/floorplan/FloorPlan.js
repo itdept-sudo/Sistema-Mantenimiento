@@ -313,14 +313,14 @@ export default function FloorPlan() {
                 style={{ left: `${indicator.x_pos}%`, top: `${indicator.y_pos}%` }}
               >
                 <div className="flex flex-col items-center">
-                  <div className={`relative w-6 h-6 rounded-full border-2 border-white/50 shadow-2xl transition-all duration-500 ${
+                  <div className={`relative w-6 h-6 rounded-full border-2 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-500 ${
                     status === 'failure' ? 'bg-red-500' : 
-                    status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500/80'
+                    status === 'maintenance' ? 'bg-yellow-500' : 'bg-blue-600/80'
                   }`}>
                     {status === 'failure' && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-40"></div>}
                   </div>
-                  <div className="mt-1 px-2 py-0.5 bg-slate-900/60 backdrop-blur-md border border-white/10 rounded shadow-lg group-hover:bg-blue-600 transition-colors">
-                    <span className="text-[7px] font-black text-white uppercase tracking-tighter whitespace-nowrap">
+                  <div className="mt-1 px-2 py-0.5 bg-slate-900 border border-blue-500/50 rounded shadow-lg group-hover:bg-blue-600 group-hover:border-blue-400 transition-all">
+                    <span className="text-[7px] font-black text-blue-400 group-hover:text-white uppercase tracking-tighter whitespace-nowrap">
                       {indicator.area_name}
                     </span>
                   </div>
