@@ -57,7 +57,9 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }) {
               <Hash className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white">Orden #{orderId.slice(0, 8)}</h3>
+              <h3 className="text-xl font-bold text-white">
+                Orden #{orderId ? orderId.toString().slice(0, 8) : '...'}
+              </h3>
               <p className="text-xs text-slate-500">Detalles técnicos de la intervención.</p>
             </div>
           </div>

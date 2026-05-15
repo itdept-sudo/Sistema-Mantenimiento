@@ -181,24 +181,8 @@ export default function Dashboard() {
       
       setTechRanking(rankingArray);
 
-      if (activities) {
-        const formatted = activities.map(act => ({
-          id: act.id,
-          tech: act.profiles?.full_name || act.reporter_name || 'Sistema',
-          action: act.status === 'open' ? 'reportó falla' : act.status === 'in_progress' ? 'en reparación' : 'actualizó',
-          machine: act.machines?.name || 'Máquina desconocida',
-          time: new Date(act.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          date: new Date(act.created_at).toLocaleDateString(),
-          raw_date: act.created_at,
-          status: act.status
-        }));
-        setRecentActivity(formatted);
-      }
-
-      if (inventory) {
-        setInventoryAlerts(inventory);
-      }
-
+      // The activity and inventory states are already updated above in the try blocks.
+      
     } catch (error) {
       console.error("Dashboard error:", error);
     } finally {
