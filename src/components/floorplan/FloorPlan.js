@@ -507,7 +507,4 @@ export default function FloorPlan() {
     </div>
   );
 }
-   </div>
-  );
-}
 
