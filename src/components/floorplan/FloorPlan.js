@@ -5,6 +5,7 @@ import { supabase, itamSupabase } from '@/lib/supabase';
 import { AlertCircle, CheckCircle2, Hammer, Plus, Map as MapIcon, Trash2, Upload, Settings, Maximize, Minimize, Activity as ActivityIcon, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import OrderModal from '@/components/orders/OrderModal';
+import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
 import { useAuth } from '@/lib/AuthContext';
 
 export default function FloorPlan() {
@@ -24,6 +25,9 @@ export default function FloorPlan() {
   const [mappingAreaId, setMappingAreaId] = useState(null);
 
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [viewingOrderId, setViewingOrderId] = useState(null);
+  
   const [machineOrders, setMachineOrders] = useState([]);
   const [planImage, setPlanImage] = useState('/floorplan.png');
   const [isUploading, setIsUploading] = useState(false);
@@ -413,13 +417,20 @@ export default function FloorPlan() {
                     <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Historial Reciente</h4>
                     <div className="space-y-4">
                       {machineOrders.length > 0 ? machineOrders.map((order) => (
-                        <div key={order.id} className="flex gap-3 text-sm border-b border-slate-800/50 pb-3 last:border-0 text-slate-300">
-                          <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${order.status === 'open' ? 'bg-blue-500' : order.status === 'in_progress' ? 'bg-orange-500' : 'bg-emerald-500'}`}></div>
+                        <button 
+                          key={order.id} 
+                          onClick={() => { setViewingOrderId(order.id); setIsDetailsModalOpen(true); }}
+                          className="w-full flex gap-3 text-sm border-b border-slate-800/50 pb-3 last:border-0 text-slate-300 hover:bg-slate-800/50 transition-all rounded-lg p-2 text-left"
+                        >
+                          <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${order.status === 'closed' ? 'bg-emerald-500' : order.status === 'in_progress' ? 'bg-orange-500' : 'bg-blue-500'}`}></div>
                           <div>
-                            <p className="line-clamp-2">{order.description}</p>
-                            <p className="text-[10px] text-slate-500 mt-1">{new Date(order.created_at).toLocaleDateString()}</p>
+                            <p className="line-clamp-2 font-medium">{order.description}</p>
+                            <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
+                              {new Date(order.created_at).toLocaleDateString()}
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">Ver Detalles</span>
+                            </p>
                           </div>
-                        </div>
+                        </button>
                       )) : <p className="text-xs text-slate-600 italic">Sin historial reciente.</p>}
                     </div>
                   </div>
@@ -487,7 +498,16 @@ export default function FloorPlan() {
         machines={machines}
         onSuccess={() => { fetchData(); setSelectedMachine(null); }}
       />
+
+      <OrderDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        orderId={viewingOrderId}
+      />
     </div>
+  );
+}
+   </div>
   );
 }
 
