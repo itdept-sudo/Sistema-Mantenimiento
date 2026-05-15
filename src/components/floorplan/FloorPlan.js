@@ -16,6 +16,8 @@ export default function FloorPlan() {
   const [itamAreas, setItamAreas] = useState([]);
   const [selectedMachine, setSelectedMachine] = useState(null);
   
+  const [selectedArea, setSelectedArea] = useState(null);
+  
   const [isMappingMode, setIsMappingMode] = useState(false);
   const [mappingType, setMappingType] = useState('machine'); // 'machine' or 'area'
   const [mappingMachineId, setMappingMachineId] = useState(null);
@@ -160,6 +162,13 @@ export default function FloorPlan() {
     fetchData();
   };
 
+  const handleResetArea = async (areaId) => {
+    if (!confirm("¿Quitar este indicador de área?")) return;
+    await supabase.from('area_indicators').delete().eq('area_id', areaId);
+    setSelectedArea(null);
+    fetchData();
+  };
+
   const handleZoom = (delta) => setScale(prev => Math.min(Math.max(prev + delta, 0.5), 5));
   const resetZoom = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
 
@@ -187,12 +196,12 @@ export default function FloorPlan() {
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
 
       {!isFullscreen && (
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex justify-between items-center mb-8 text-white">
           <div>
-            <h2 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+            <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
               Plano Interactivo <Layers className="w-6 h-6 text-blue-500" />
             </h2>
-            <p className="text-slate-400 mt-1">Monitoreo visual de máquinas y LEDs de área en tiempo real.</p>
+            <p className="text-slate-400 mt-1">Monitoreo visual de máquinas y áreas en tiempo real.</p>
           </div>
 
           <div className="flex gap-4 items-center">
@@ -291,30 +300,32 @@ export default function FloorPlan() {
           {areaIndicators.map((indicator) => {
             const status = getAreaStatus(indicator.area_id);
             return (
-              <motion.div
+              <motion.button
                 key={indicator.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedArea(indicator);
+                  setSelectedMachine(null);
+                }}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-0 group"
                 style={{ left: `${indicator.x_pos}%`, top: `${indicator.y_pos}%` }}
               >
                 <div className="flex flex-col items-center">
-                  <div className={`relative w-12 h-12 rounded-full border-4 border-slate-900 shadow-2xl transition-all duration-500 ${
+                  <div className={`relative w-6 h-6 rounded-full border-2 border-white/50 shadow-2xl transition-all duration-500 ${
                     status === 'failure' ? 'bg-red-500' : 
                     status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500/80'
                   }`}>
                     {status === 'failure' && <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-40"></div>}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <ActivityIcon className="w-5 h-5 text-white/50" />
-                    </div>
                   </div>
-                  <div className="mt-2 px-3 py-1 bg-slate-900/90 backdrop-blur-md border border-slate-700 rounded-full shadow-lg">
-                    <span className="text-[9px] font-black text-white uppercase tracking-tighter whitespace-nowrap">
+                  <div className="mt-1 px-2 py-0.5 bg-slate-900/60 backdrop-blur-md border border-white/10 rounded shadow-lg group-hover:bg-blue-600 transition-colors">
+                    <span className="text-[7px] font-black text-white uppercase tracking-tighter whitespace-nowrap">
                       {indicator.area_name}
                     </span>
                   </div>
                 </div>
-              </motion.div>
+              </motion.button>
             );
           })}
 
@@ -328,6 +339,7 @@ export default function FloorPlan() {
               onClick={(e) => {
                 e.stopPropagation();
                 setSelectedMachine(machine);
+                setSelectedArea(null);
               }}
               className="absolute transform -translate-x-1/2 -translate-y-1/2 z-10"
               style={{ left: `${machine.x_pos}%`, top: `${machine.y_pos}%` }}
@@ -342,9 +354,9 @@ export default function FloorPlan() {
           ))}
         </motion.div>
 
-        {/* Machine Sidebar */}
+        {/* Sidebar (Unified for Machine and Area) */}
         <AnimatePresence>
-          {selectedMachine && (
+          {(selectedMachine || selectedArea) && (
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
@@ -352,35 +364,43 @@ export default function FloorPlan() {
               className="absolute right-0 top-0 bottom-0 w-80 bg-slate-900/90 backdrop-blur-xl border-l border-slate-800 p-6 z-[60] shadow-2xl overflow-y-auto"
             >
               <div className="flex justify-between items-start mb-6 text-white">
-                <div>
-                  <h3 className="text-xl font-bold">{selectedMachine.name}</h3>
-                  {selectedMachine.alias && (
-                    <p className="text-indigo-400 text-sm font-bold italic">"{selectedMachine.alias}"</p>
-                  )}
-                  <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded mt-2 inline-block ${
-                    selectedMachine.status === 'failure' ? 'bg-red-500/20 text-red-400' : 
-                    selectedMachine.status === 'maintenance' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'
-                  }`}>
-                    {selectedMachine.status}
-                  </span>
-                  
+                {selectedMachine ? (
+                  <div>
+                    <h3 className="text-xl font-bold">{selectedMachine.name}</h3>
+                    {selectedMachine.alias && (
+                      <p className="text-indigo-400 text-sm font-bold italic">"{selectedMachine.alias}"</p>
+                    )}
+                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded mt-2 inline-block ${
+                      selectedMachine.status === 'failure' ? 'bg-red-500/20 text-red-400' : 
+                      selectedMachine.status === 'maintenance' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-emerald-500/20 text-emerald-400'
+                    }`}>
+                      {selectedMachine.status}
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                      <Layers className="w-5 h-5 text-emerald-400" /> {selectedArea.area_name}
+                    </h3>
+                    <p className="text-slate-400 text-xs mt-1">Detalle de Departamento</p>
+                  </div>
+                )}
+                <button onClick={() => { setSelectedMachine(null); setSelectedArea(null); }} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">✕</button>
+              </div>
+
+              {selectedMachine ? (
+                <div className="space-y-6">
                   {isAdmin && (
-                    <div className="mt-4 space-y-2">
+                    <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Estado Manual</label>
                       <select 
                         value={selectedMachine.status}
                         onChange={async (e) => {
                           const newStatus = e.target.value;
-                          const { error } = await supabase
-                            .from('machines')
-                            .update({ status: newStatus })
-                            .eq('id', selectedMachine.id);
-                          if (!error) {
-                            setSelectedMachine({ ...selectedMachine, status: newStatus });
-                            fetchData();
-                          }
+                          const { error } = await supabase.from('machines').update({ status: newStatus }).eq('id', selectedMachine.id);
+                          if (!error) { setSelectedMachine({ ...selectedMachine, status: newStatus }); fetchData(); }
                         }}
-                        className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 px-3 text-sm text-white focus:outline-none"
                       >
                         <option value="operational">Operativa (Verde)</option>
                         <option value="failure">Falla / Paro (Rojo)</option>
@@ -388,46 +408,73 @@ export default function FloorPlan() {
                       </select>
                     </div>
                   )}
-                </div>
-                <button onClick={() => setSelectedMachine(null)} className="p-2 hover:bg-slate-800 rounded-lg">✕</button>
-              </div>
 
-              <div className="space-y-6">
-                <div>
-                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Historial Reciente</h4>
-                  <div className="space-y-4">
-                    {machineOrders.length > 0 ? machineOrders.map((order) => (
-                      <div key={order.id} className="flex gap-3 text-sm border-b border-slate-800/50 pb-3 last:border-0 text-slate-300">
-                        <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${
-                          order.status === 'open' ? 'bg-blue-500' :
-                          order.status === 'in_progress' ? 'bg-orange-500' : 'bg-emerald-500'
-                        }`}></div>
-                        <div>
-                          <p className="line-clamp-2">{order.description}</p>
-                          <p className="text-[10px] text-slate-500 mt-1">{new Date(order.created_at).toLocaleDateString()}</p>
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Historial Reciente</h4>
+                    <div className="space-y-4">
+                      {machineOrders.length > 0 ? machineOrders.map((order) => (
+                        <div key={order.id} className="flex gap-3 text-sm border-b border-slate-800/50 pb-3 last:border-0 text-slate-300">
+                          <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${order.status === 'open' ? 'bg-blue-500' : order.status === 'in_progress' ? 'bg-orange-500' : 'bg-emerald-500'}`}></div>
+                          <div>
+                            <p className="line-clamp-2">{order.description}</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{new Date(order.created_at).toLocaleDateString()}</p>
+                          </div>
                         </div>
-                      </div>
-                    )) : <p className="text-xs text-slate-600 italic">Sin historial reciente.</p>}
+                      )) : <p className="text-xs text-slate-600 italic">Sin historial reciente.</p>}
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-800 space-y-3">
+                    <button onClick={() => setIsOrderModalOpen(true)} className="w-full py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-bold shadow-lg flex items-center justify-center gap-2">
+                      <Hammer className="w-5 h-5" /> Reportar Falla
+                    </button>
+                    {isAdmin && (
+                      <button onClick={() => handleResetPosition(selectedMachine.id)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border border-slate-700">
+                        <Trash2 className="w-4 h-4 text-red-500" /> Quitar del Mapa
+                      </button>
+                    )}
                   </div>
                 </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Maquinaria en esta Área</h4>
+                    <div className="space-y-2">
+                      {machines.filter(m => m.area_id === selectedArea.area_id).length > 0 ? (
+                        machines.filter(m => m.area_id === selectedArea.area_id).map((m) => (
+                          <button 
+                            key={m.id}
+                            onClick={() => { setSelectedMachine(m); setSelectedArea(null); }}
+                            className="w-full flex items-center justify-between p-3 bg-slate-800/50 hover:bg-slate-800 rounded-xl border border-slate-700/50 transition-all text-left"
+                          >
+                            <div>
+                              <p className="text-sm font-bold text-white">{m.name}</p>
+                              {m.alias && <p className="text-[10px] text-indigo-400 font-bold italic">"{m.alias}"</p>}
+                            </div>
+                            <div className={`w-3 h-3 rounded-full ${
+                              m.status === 'failure' ? 'bg-red-500 animate-pulse' : 
+                              m.status === 'maintenance' ? 'bg-yellow-500' : 'bg-emerald-500'
+                            }`} />
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-600 italic py-4">No hay maquinaria asignada a esta área aún.</p>
+                      )}
+                    </div>
+                  </div>
 
-                <div className="pt-6 border-t border-slate-800 space-y-3">
-                  <button 
-                    onClick={() => setIsOrderModalOpen(true)}
-                    className="w-full py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-                  >
-                    <Hammer className="w-5 h-5" /> Reportar Falla
-                  </button>
                   {isAdmin && (
-                    <button 
-                      onClick={() => handleResetPosition(selectedMachine.id)}
-                      className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 border border-slate-700"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" /> Quitar del Mapa
-                    </button>
+                    <div className="pt-6 border-t border-slate-800">
+                      <button 
+                        onClick={() => handleResetArea(selectedArea.area_id)}
+                        className="w-full py-3 bg-slate-800 hover:bg-red-900/20 hover:text-red-400 text-slate-400 rounded-xl text-[10px] font-bold transition-all border border-slate-700 flex items-center justify-center gap-2"
+                      >
+                        <Trash2 className="w-3 h-3" /> Eliminar LED de Área
+                      </button>
+                    </div>
                   )}
                 </div>
-              </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -443,3 +490,4 @@ export default function FloorPlan() {
     </div>
   );
 }
+

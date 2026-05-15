@@ -39,8 +39,17 @@ export default function MachineModal({ isOpen, onClose, machine = null, onSucces
 
       // Fetch areas from ITAM Desk
       if (itamSupabase) {
-        const { data: aData } = await itamSupabase.from('areas').select('id, name').order('name');
-        setAreas(aData || []);
+        console.log("Intentando conectar con ITAM Desk...");
+        const { data: aData, error: aError } = await itamSupabase.from('areas').select('id, name').order('name');
+        
+        if (aError) {
+          console.error("Error al traer áreas de ITAM Desk:", aError);
+        } else {
+          console.log("Áreas de ITAM recibidas:", aData);
+          setAreas(aData || []);
+        }
+      } else {
+        console.warn("itamSupabase no está inicializado. Verifica las variables de entorno.");
       }
     };
     if (isOpen) fetchData();
