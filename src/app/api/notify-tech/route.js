@@ -1,12 +1,5 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import { createClient } from '@supabase/supabase-js';
-
-// Inicializar supabase para backend (necesita anon key o service role)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
 
 export async function POST(request) {
   try {
@@ -61,7 +54,7 @@ export async function POST(request) {
                 </tr>
                 <tr>
                   <td style="padding: 12px 15px; background-color: #f1f5f9; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #475569;">Orden ID</td>
-                  <td style="padding: 12px 15px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-family: monospace;">${orderId.slice(0,8)}</td>
+                  <td style="padding: 12px 15px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-family: monospace;">${String(orderId).slice(0,8)}</td>
                 </tr>
                 <tr>
                   <td style="padding: 12px 15px; background-color: #f1f5f9; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: #475569;">Prioridad</td>
