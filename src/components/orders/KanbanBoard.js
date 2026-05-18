@@ -225,7 +225,8 @@ export default function KanbanBoard() {
 
     if (dateFilter === 'all') return true;
 
-    const orderDate = new Date(order.created_at);
+    // Usar updated_at para capturar tareas recientemente modificadas o cerradas
+    const orderDate = order.updated_at ? new Date(order.updated_at) : new Date(order.created_at);
     const now = new Date();
     
     if (dateFilter === 'today') {

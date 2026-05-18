@@ -164,13 +164,23 @@ export default function Dashboard() {
       let filteredForRanking = allOrders.filter(o => o.status === 'closed' || o.status === 'resolved');
       if (rankingPeriod !== 'all') {
         const limitDate = new Date();
-        if (rankingPeriod === 'today') limitDate.setHours(0, 0, 0, 0);
-        if (rankingPeriod === 'week') limitDate.setDate(now.getDate() - 7);
-        if (rankingPeriod === 'month') limitDate.setMonth(now.getMonth() - 1);
-        
         filteredForRanking = filteredForRanking.filter(o => {
           const completionDate = o.closed_at ? new Date(o.closed_at) : new Date(o.updated_at);
-          return completionDate >= limitDate;
+          
+          if (rankingPeriod === 'today') {
+            return completionDate.toDateString() === limitDate.toDateString();
+          }
+          if (rankingPeriod === 'week') {
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return completionDate >= weekAgo;
+          }
+          if (rankingPeriod === 'month') {
+            const monthAgo = new Date();
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            return completionDate >= monthAgo;
+          }
+          return true;
         });
       }
 
