@@ -241,18 +241,29 @@ export default function FloorPlan() {
             )}
             
             {isAdmin && (
-              <button 
-                onClick={() => {
-                  setIsMappingMode(!isMappingMode);
-                  if (isMappingMode) { setMappingMachineId(null); setMappingAreaId(null); }
-                }}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-                  isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300 border border-slate-700'
-                }`}
-              >
-                <MapIcon className="w-4 h-4" />
-                {isMappingMode ? 'Listo' : 'Mapear'}
-              </button>
+              <>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white rounded-lg text-sm font-semibold transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Upload className="w-4 h-4" />
+                  {isUploading ? 'Subiendo...' : 'Actualizar Plano'}
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setIsMappingMode(!isMappingMode);
+                    if (isMappingMode) { setMappingMachineId(null); setMappingAreaId(null); }
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                    isMappingMode ? 'bg-orange-500 text-white shadow-lg' : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  <MapIcon className="w-4 h-4" />
+                  {isMappingMode ? 'Listo' : 'Mapear'}
+                </button>
+              </>
             )}
           </div>
         </div>
