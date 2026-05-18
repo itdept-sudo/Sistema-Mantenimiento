@@ -29,7 +29,7 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
       // Fetch technicians
       const { data: techs } = await supabase
         .from('profiles')
-        .select('id, full_name')
+        .select('id, full_name, email')
         .eq('role', 'technician');
       
       if (techs) {
@@ -100,16 +100,19 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
 
       // Enviar notificación por correo
       const machineName = machines?.find(m => String(m.id) === String(formData.machine_id))?.name || 'Máquina';
+      const techInfo = technicians.find(t => String(t.id) === String(finalTechId));
+      
       fetch('/api/notify-tech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          technicianId: finalTechId,
           orderId: newOrder.id,
           machineName: machineName,
           priority: formData.priority,
           description: formData.description,
-          maintenanceType: formData.maintenance_type
+          maintenanceType: formData.maintenance_type,
+          techEmail: techInfo?.email,
+          techName: techInfo?.full_name
         })
       }).catch(err => console.error("Error trigger email:", err));
     }

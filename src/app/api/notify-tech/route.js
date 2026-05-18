@@ -11,21 +11,10 @@ const supabase = createClient(
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { technicianId, orderId, machineName, priority, description, maintenanceType } = body;
+    const { orderId, machineName, priority, description, maintenanceType, techEmail, techName } = body;
 
-    if (!technicianId || !orderId) {
+    if (!techEmail || !orderId) {
       return NextResponse.json({ error: 'Faltan parámetros obligatorios' }, { status: 400 });
-    }
-
-    // 1. Obtener el email y nombre del técnico
-    const { data: techData, error: techError } = await supabase
-      .from('profiles')
-      .select('full_name, email')
-      .eq('id', technicianId)
-      .single();
-
-    if (techError || !techData || !techData.email) {
-      return NextResponse.json({ error: 'Técnico no encontrado o sin email' }, { status: 404 });
     }
 
     // 2. Configurar el transporter de Nodemailer
@@ -52,7 +41,7 @@ export async function POST(request) {
     // 3. Crear el contenido del correo (HTML)
     const mailOptions = {
       from: `"MaintOps Pro" <${process.env.SMTP_USER}>`,
-      to: techData.email,
+      to: techEmail,
       subject: `Nueva Orden Asignada: ${machineName} (Prioridad ${priority.toUpperCase()})`,
       html: `
         <div style="font-family: Arial, sans-serif; max-w: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #f8fafc;">
@@ -61,7 +50,7 @@ export async function POST(request) {
           </div>
           
           <div style="padding: 30px; background-color: white;">
-            <p style="font-size: 16px; color: #334155; margin-top: 0;">Hola <strong>${techData.full_name}</strong>,</p>
+            <p style="font-size: 16px; color: #334155; margin-top: 0;">Hola <strong>${techName}</strong>,</p>
             <p style="font-size: 16px; color: #334155;">Se te ha asignado una nueva orden de trabajo en <strong>MaintOps Pro</strong>. Por favor, atiende este reporte lo antes posible.</p>
             
             <div style="margin: 25px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">

@@ -30,7 +30,7 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
           // Fetch technicians
           const { data: techs } = await supabase
             .from('profiles')
-            .select('id, full_name')
+            .select('id, full_name, email')
             .eq('role', 'technician');
           
           if (techs) {
@@ -66,16 +66,18 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
       alert("Error al asignar: " + error.message);
     } else {
       // Enviar notificación al nuevo técnico
+      const techInfo = technicians.find(t => String(t.id) === String(techId));
       fetch('/api/notify-tech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          technicianId: techId,
           orderId: task.id,
           machineName: task.machines?.name || 'Máquina',
           priority: task.priority || 'medium',
           description: task.description,
-          maintenanceType: task.maintenance_type
+          maintenanceType: task.maintenance_type,
+          techEmail: techInfo?.email,
+          techName: techInfo?.full_name
         })
       }).catch(err => console.error("Error trigger email:", err));
 
