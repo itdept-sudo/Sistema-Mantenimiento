@@ -79,7 +79,11 @@ export default function Dashboard() {
       try {
         const { data, error } = await supabase
           .from('work_orders')
-          .select('*, profiles!technician_id(full_name)');
+          .select(`
+            *, 
+            profiles!technician_id(full_name),
+            work_order_technicians(profiles(full_name))
+          `);
         if (error) throw error;
         allOrders = data || [];
         console.log("Dashboard Orders Loaded:", allOrders.length);
@@ -172,10 +176,22 @@ export default function Dashboard() {
 
       const rankingMap = {};
       filteredForRanking.forEach(o => {
-        const techName = o.profiles?.full_name || 'Sin asignar';
-        if (o.technician_id) {
-          rankingMap[techName] = (rankingMap[techName] || 0) + 1;
+        // Obtenemos todos los técnicos asignados (nueva tabla)
+        const teamTechs = o.work_order_technicians?.map(wt => wt.profiles?.full_name).filter(Boolean) || [];
+        
+        // Obtenemos el técnico legacy
+        const legacyTech = o.profiles?.full_name;
+
+        // Combinamos y quitamos duplicados
+        let allTechNames = [...new Set([...teamTechs, legacyTech].filter(Boolean))];
+
+        if (allTechNames.length === 0) {
+          allTechNames = ['Sin asignar'];
         }
+
+        allTechNames.forEach(techName => {
+          rankingMap[techName] = (rankingMap[techName] || 0) + 1;
+        });
       });
 
       const rankingArray = Object.entries(rankingMap)
