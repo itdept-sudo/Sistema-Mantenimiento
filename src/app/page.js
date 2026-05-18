@@ -163,7 +163,11 @@ export default function Dashboard() {
         if (rankingPeriod === 'today') limitDate.setHours(0, 0, 0, 0);
         if (rankingPeriod === 'week') limitDate.setDate(now.getDate() - 7);
         if (rankingPeriod === 'month') limitDate.setMonth(now.getMonth() - 1);
-        filteredForRanking = filteredForRanking.filter(o => new Date(o.created_at) >= limitDate);
+        
+        filteredForRanking = filteredForRanking.filter(o => {
+          const completionDate = o.closed_at ? new Date(o.closed_at) : new Date(o.updated_at);
+          return completionDate >= limitDate;
+        });
       }
 
       const rankingMap = {};
