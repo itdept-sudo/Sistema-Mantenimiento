@@ -126,6 +126,25 @@ export default function OrderDetailsModal({ isOpen, onClose, orderId }) {
               </p>
             </div>
 
+            {/* Resolution Evidence (If Closed) */}
+            {order.status === 'closed' && (order.resolution_notes || order.resolution_photo_url) && (
+              <div className="p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+                <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest block mb-2">Evidencia de Resolución</label>
+                {order.resolution_notes && (
+                  <p className="text-sm text-emerald-100 leading-relaxed mb-4">
+                    {order.resolution_notes}
+                  </p>
+                )}
+                {order.resolution_photo_url && (
+                  <div>
+                    <a href={order.resolution_photo_url} target="_blank" rel="noopener noreferrer" className="relative h-40 w-40 rounded-xl overflow-hidden border border-emerald-500/30 block hover:border-emerald-400 transition-colors shadow-lg">
+                      <img src={order.resolution_photo_url} alt="Evidencia de Resolución" className="object-cover w-full h-full" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Footer Dates */}
             <div className="flex justify-between items-center pt-4 border-t border-slate-800 text-[10px] text-slate-500 font-bold uppercase">
               <div className="flex items-center gap-2">

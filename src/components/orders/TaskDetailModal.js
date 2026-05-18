@@ -246,6 +246,25 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
             )}
           </div>
 
+          {/* Resolution Evidence (If Closed) */}
+          {task.status === 'closed' && (task.resolution_notes || task.resolution_photo_url) && (
+            <div className="p-5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 space-y-4">
+              <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-2">Evidencia de Resolución</h4>
+              {task.resolution_notes && (
+                <p className="text-sm text-emerald-100 leading-relaxed">
+                  {task.resolution_notes}
+                </p>
+              )}
+              {task.resolution_photo_url && (
+                <div>
+                  <a href={task.resolution_photo_url} target="_blank" rel="noopener noreferrer" className="relative h-40 w-40 rounded-xl overflow-hidden border border-emerald-500/30 block hover:border-emerald-400 transition-colors shadow-lg">
+                    <img src={task.resolution_photo_url} alt="Evidencia de Resolución" className="object-cover w-full h-full" />
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+
           {task.status === 'resolved' && (
             <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400">
               <CheckCircle2 className="w-5 h-5 flex-shrink-0" />

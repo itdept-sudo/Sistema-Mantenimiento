@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { ClipboardCheck, Clock, CheckCircle, Eye, History, LayoutList, RotateCcw } from 'lucide-react';
 import TaskDetailModal from '@/components/orders/TaskDetailModal';
+import CloseOrderModal from '@/components/orders/CloseOrderModal';
 import { checkAndGenerateSchedules } from '@/lib/scheduleWorker';
 
 export default function MyTasksPage() {
@@ -15,6 +16,8 @@ export default function MyTasksPage() {
   const [loading, setLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [taskToClose, setTaskToClose] = useState(null);
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('corrective'); // 'corrective', 'preventive' o 'history'
 
   const fetchMyTasks = async () => {
@@ -203,9 +206,8 @@ export default function MyTasksPage() {
                   {(task.status === 'in_progress' || task.status === 'resolved') && (
                     <button 
                       onClick={() => {
-                        if (confirm("¿Confirmas el cierre definitivo de esta orden?")) {
-                          updateTaskStatus(task.id, 'closed', task.machine_id);
-                        }
+                        setTaskToClose(task);
+                        setIsCloseModalOpen(true);
                       }}
                       className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
                     >
@@ -236,6 +238,15 @@ export default function MyTasksPage() {
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         task={selectedTask}
+      />
+      <CloseOrderModal
+        isOpen={isCloseModalOpen}
+        onClose={() => setIsCloseModalOpen(false)}
+        task={taskToClose}
+        onSuccess={() => {
+          fetchMyTasks();
+          setTaskToClose(null);
+        }}
       />
     </div>
   );
