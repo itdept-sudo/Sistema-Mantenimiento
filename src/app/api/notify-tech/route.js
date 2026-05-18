@@ -32,6 +32,10 @@ export async function POST(request) {
     const color = priorityColors[priority] || '#3B82F6';
 
     // 3. Crear el contenido del correo (HTML)
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+      || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
+      || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
     const mailOptions = {
       from: `"MaintOps Pro" <${process.env.SMTP_USER}>`,
       to: techEmail,
@@ -72,7 +76,7 @@ export async function POST(request) {
             </div>
 
             <div style="text-align: center; margin-top: 30px;">
-              <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/my-tasks" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;">Ver Mis Tareas</a>
+              <a href="${baseUrl}/my-tasks" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block;">Ver Mis Tareas</a>
             </div>
           </div>
           
