@@ -65,6 +65,20 @@ export default function TaskDetailModal({ isOpen, onClose, task, onSuccess }) {
     if (error) {
       alert("Error al asignar: " + error.message);
     } else {
+      // Enviar notificación al nuevo técnico
+      fetch('/api/notify-tech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          technicianId: techId,
+          orderId: task.id,
+          machineName: task.machines?.name || 'Máquina',
+          priority: task.priority || 'medium',
+          description: task.description,
+          maintenanceType: task.maintenance_type
+        })
+      }).catch(err => console.error("Error trigger email:", err));
+
       fetchAssignedTechs();
       onSuccess?.();
     }

@@ -97,6 +97,21 @@ export default function OrderModal({ isOpen, onClose, initialMachineId, machines
       await supabase
         .from('work_order_technicians')
         .insert({ work_order_id: newOrder.id, technician_id: finalTechId });
+
+      // Enviar notificación por correo
+      const machineName = machines?.find(m => String(m.id) === String(formData.machine_id))?.name || 'Máquina';
+      fetch('/api/notify-tech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          technicianId: finalTechId,
+          orderId: newOrder.id,
+          machineName: machineName,
+          priority: formData.priority,
+          description: formData.description,
+          maintenanceType: formData.maintenance_type
+        })
+      }).catch(err => console.error("Error trigger email:", err));
     }
 
     if (!orderError && formData.maintenance_type === 'corrective') {
