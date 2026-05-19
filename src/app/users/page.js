@@ -63,6 +63,11 @@ export default function UsersPage() {
       } else {
         fetchUsers();
       }
+    } catch (err) {
+      alert("Error de conexión al intentar cambiar el rol.");
+    }
+  };
+
   const handleDeleteActiveUser = async (userId, email, name) => {
     if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente al usuario "${name || email}"? Esta acción revocará todos sus accesos al sistema inmediatamente.`)) return;
     
