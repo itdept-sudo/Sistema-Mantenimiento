@@ -25,10 +25,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const refreshProfile = async (userId) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (data) {
+    try {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (error || !data) {
+        console.warn("No active profile found for authenticated user. Revoking access.");
+        logout();
+        return;
+      }
       setProfile(data);
       localStorage.setItem('user_role', data.role);
+    } catch (err) {
+      console.error("Error refreshing profile:", err);
     }
   };
 

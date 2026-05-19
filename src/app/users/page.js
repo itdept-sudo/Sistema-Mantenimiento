@@ -63,8 +63,29 @@ export default function UsersPage() {
       } else {
         fetchUsers();
       }
+  const handleDeleteActiveUser = async (userId, email, name) => {
+    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente al usuario "${name || email}"? Esta acción revocará todos sus accesos al sistema inmediatamente.`)) return;
+    
+    try {
+      // 1. Delete from profiles
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      // 2. Also delete from pre_approved_users in case they were pre-approved
+      await supabase
+        .from('pre_approved_users')
+        .delete()
+        .eq('email', email);
+
+      alert('Usuario eliminado correctamente del sistema.');
+      fetchUsers();
     } catch (err) {
-      alert("Error de conexión al intentar cambiar el rol.");
+      console.error("Error al eliminar usuario:", err);
+      alert("Error al eliminar el usuario: " + err.message);
     }
   };
 
@@ -184,6 +205,7 @@ export default function UsersPage() {
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Email</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Rol Actual</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Cambiar Rol</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
@@ -216,6 +238,15 @@ export default function UsersPage() {
                         <option key={r.id} value={r.id}>{r.name}</option>
                       ))}
                     </select>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button 
+                      onClick={() => handleDeleteActiveUser(profile.id, profile.email, profile.full_name)}
+                      disabled={profile.id === currentUser?.id} // No se puede eliminar a sí mismo
+                      className="text-xs font-bold text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 px-4 py-2 rounded-lg transition-colors border border-red-500/20 disabled:opacity-50"
+                    >
+                      Eliminar
+                    </button>
                   </td>
                 </tr>
               ))}
