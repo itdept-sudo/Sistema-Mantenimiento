@@ -23,12 +23,14 @@ export default function AuthCallbackPage() {
 
         // Determine the role for the user
         try {
-          // 1. Check if the user is in pre_approved_users (case-insensitive check)
-          const { data: preApproved } = await supabase
+          // 1. Check if the user is in pre_approved_users (trim & case-insensitive match in JS)
+          const { data: preApprovedList } = await supabase
             .from('pre_approved_users')
-            .select('role')
-            .ilike('email', userEmail)
-            .maybeSingle();
+            .select('*');
+
+          const preApproved = preApprovedList?.find(
+            p => p.email && p.email.toLowerCase().trim() === userEmail.toLowerCase().trim()
+          );
 
           // 2. Check their current profile
           const { data: currentProfile } = await supabase
@@ -60,18 +62,18 @@ export default function AuthCallbackPage() {
               .from('profiles')
               .insert({
                 id: data.session.user.id,
-                email: userEmail,
+                email: userEmail.toLowerCase().trim(),
                 full_name: data.session.user.user_metadata?.full_name || userEmail.split('@')[0],
                 role: targetRole
               });
           }
 
-          // 4. Clean up pre_approved_users once successfully logged in (case-insensitive)
+          // 4. Clean up pre_approved_users once successfully logged in (case & space insensitive)
           if (preApproved) {
             await supabase
               .from('pre_approved_users')
               .delete()
-              .ilike('email', userEmail);
+              .eq('email', preApproved.email);
           }
         } catch (err) {
           console.error("Error setting user role:", err);

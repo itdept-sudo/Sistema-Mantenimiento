@@ -39,6 +39,31 @@ export default function UsersPage() {
         setPreApprovedUsers(preApprovedData);
       }
 
+      // Auto-cleanup: if any pre-approved user already has an active profile, delete them from pre_approved_users in the background
+      if (profilesData && preApprovedData && !preApprovedError) {
+        const activeEmails = new Set(profilesData.map(p => p.email?.toLowerCase().trim()).filter(Boolean));
+        const toDelete = preApprovedData.filter(p => p.email && activeEmails.has(p.email.toLowerCase().trim()));
+        
+        if (toDelete.length > 0) {
+          for (const pending of toDelete) {
+            console.log("Cleaning up active pre-approved user in background:", pending.email);
+            await supabase
+              .from('pre_approved_users')
+              .delete()
+              .eq('email', pending.email);
+          }
+          
+          // Refetch pre-approved users to keep UI in sync
+          const { data: updatedPreApproved, error: updateError } = await supabase
+            .from('pre_approved_users')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (!updateError && updatedPreApproved) {
+            setPreApprovedUsers(updatedPreApproved);
+          }
+        }
+      }
+
     } catch (error) {
       console.error(error);
     } finally {
