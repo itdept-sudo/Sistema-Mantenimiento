@@ -116,14 +116,10 @@ export default function InventoryReportModal({ isOpen, onClose, items }) {
         doc.setFontSize(14);
         doc.text('REPORTE HISTÓRICO DE ENTRADAS Y SALIDAS', 14, 42);
 
-        // Fetch logs based on range
+        // Fetch logs based on range (raw columns)
         let query = supabase
           .from('inventory_logs')
-          .select(`
-            *,
-            inventory (name, part_number),
-            profiles:user_id (full_name)
-          `)
+          .select('*')
           .order('created_at', { ascending: false });
 
         if (dateRange === '7days') {
@@ -136,13 +132,31 @@ export default function InventoryReportModal({ isOpen, onClose, items }) {
           query = query.gte('created_at', cut.toISOString());
         }
 
-        const { data: logs, error } = await query;
-        if (error) throw error;
+        const { data: rawLogs, error: logsError } = await query;
+        if (logsError) throw logsError;
+
+        // Fetch profiles and inventory items in parallel to do in-memory join (bulletproof)
+        const [profilesRes, inventoryRes] = await Promise.all([
+          supabase.from('profiles').select('id, full_name'),
+          supabase.from('inventory').select('id, name, part_number')
+        ]);
+
+        const profilesMap = {};
+        (profilesRes.data || []).forEach(p => { profilesMap[p.id] = p.full_name; });
+
+        const inventoryMap = {};
+        (inventoryRes.data || []).forEach(i => { inventoryMap[i.id] = { name: i.name, part_number: i.part_number }; });
+
+        const logs = (rawLogs || []).map(log => ({
+          ...log,
+          inventoryName: inventoryMap[log.item_id]?.name || 'Ítem Eliminado',
+          authorName: profilesMap[log.user_id] || 'Almacén'
+        }));
 
         // Draw Stats Row
-        const totalOps = logs?.length || 0;
-        const entries = logs?.filter(l => l.type === 'entry').length || 0;
-        const exits = logs?.filter(l => l.type === 'exit').length || 0;
+        const totalOps = logs.length;
+        const entries = logs.filter(l => l.type === 'entry').length;
+        const exits = logs.filter(l => l.type === 'exit').length;
 
         doc.setFillColor(241, 245, 249);
         doc.rect(14, 48, 182, 16, 'F');
@@ -155,13 +169,13 @@ export default function InventoryReportModal({ isOpen, onClose, items }) {
         doc.text(`Salidas / Consumo: ${exits}`, 125, 58);
 
         // Populate Logs Table
-        const body = (logs || []).map((log) => [
+        const body = logs.map((log) => [
           new Date(log.created_at).toLocaleDateString(),
-          log.inventory?.name || 'Ítem Eliminado',
+          log.inventoryName,
           log.type === 'entry' ? 'ENTRADA' : 'SALIDA',
           log.quantity,
           log.reason || 'Sin detalles',
-          log.profiles?.full_name || 'Almacén'
+          log.authorName
         ]);
 
         autoTable(doc, {

@@ -18,17 +18,30 @@ export default function InventoryHistoryModal({ isOpen, onClose, item }) {
   const fetchLogs = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: rawLogs, error } = await supabase
         .from('inventory_logs')
-        .select(`
-          *,
-          profiles:user_id (full_name)
-        `)
+        .select('*')
         .eq('item_id', item.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setLogs(data || []);
+
+      // Fetch profiles separately to map authors in memory (bypasses missing foreign key constraint issue)
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name');
+      
+      const profilesMap = {};
+      (profiles || []).forEach(p => { profilesMap[p.id] = p.full_name; });
+
+      const logsWithProfiles = (rawLogs || []).map(log => ({
+        ...log,
+        profiles: {
+          full_name: profilesMap[log.user_id] || 'Almacén'
+        }
+      }));
+
+      setLogs(logsWithProfiles);
     } catch (err) {
       console.error("Error fetching logs:", err);
     } finally {
