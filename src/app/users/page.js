@@ -99,6 +99,22 @@ export default function UsersPage() {
           throw error;
         }
       } else {
+        // 3. Send Email Invitation
+        try {
+          await fetch('/api/invite-user', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: inviteEmail,
+              role: inviteRole
+            })
+          });
+        } catch (emailErr) {
+          console.error("Error trigger email invite:", emailErr);
+        }
+
         setInviteEmail('');
         setInviteRole('employee');
         setIsInviteModalOpen(false);
