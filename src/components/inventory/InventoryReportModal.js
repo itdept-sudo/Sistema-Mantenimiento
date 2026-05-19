@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { X, FileDown, Calendar, ClipboardList, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export default function InventoryReportModal({ isOpen, onClose, items }) {
   const [reportType, setReportType] = useState('current'); // 'current' or 'history'
@@ -79,7 +79,7 @@ export default function InventoryReportModal({ isOpen, onClose, items }) {
           `$${(item.unit_price || 0).toFixed(2)}`
         ]);
 
-        doc.autoTable({
+        autoTable(doc, {
           startY: 70,
           head: [['Nombre del Ítem', 'Nº Parte', 'Ubicación', 'Mín', 'Stock', 'Precio U. (USD)']],
           body: body,
@@ -164,7 +164,7 @@ export default function InventoryReportModal({ isOpen, onClose, items }) {
           log.profiles?.full_name || 'Almacén'
         ]);
 
-        doc.autoTable({
+        autoTable(doc, {
           startY: 70,
           head: [['Fecha', 'Repuesto', 'Movimiento', 'Cant.', 'Motivo / Referencia', 'Autorizado Por']],
           body: body,
