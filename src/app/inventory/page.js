@@ -14,12 +14,14 @@ import {
   History,
   Filter,
   RefreshCw,
-  Box
+  Box,
+  FileDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import InventoryModal from '@/components/inventory/InventoryModal';
 import StockAdjustmentModal from '@/components/inventory/StockAdjustmentModal';
 import InventoryHistoryModal from '@/components/inventory/InventoryHistoryModal';
+import InventoryReportModal from '@/components/inventory/InventoryReportModal';
 
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -31,6 +33,7 @@ export default function InventoryPage() {
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
   const fetchInventory = async () => {
@@ -96,6 +99,13 @@ export default function InventoryPage() {
         </div>
         
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsReportModalOpen(true)}
+            className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-6 py-3 rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
+            <FileDown className="w-5 h-5 text-blue-500" /> Exportar PDF
+          </button>
+
           <button 
             onClick={() => { setSelectedItem(null); setIsItemModalOpen(true); }}
             className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl font-bold shadow-xl shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -284,6 +294,12 @@ export default function InventoryPage() {
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
         item={selectedItem}
+      />
+
+      <InventoryReportModal 
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        items={items}
       />
     </div>
   );
