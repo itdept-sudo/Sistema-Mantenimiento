@@ -35,33 +35,6 @@ function LoginContent() {
   const [photoPreview, setPhotoPreview] = useState(null);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    if (user) router.push('/');
-    
-    // Verificar IP para el reporte de producción
-    const checkIP = async () => {
-      try {
-        const res = await fetch('https://api64.ipify.org?format=json');
-        const data = await res.json();
-        setUserIP(data.ip);
-        setIsIPAuthorized(data.ip === AUTHORIZED_IP);
-      } catch (err) {
-        console.error("Error al verificar IP:", err);
-      }
-    };
-    checkIP();
-  }, [user, router]);
-
-  useEffect(() => {
-    if (view === 'report') {
-      const fetchMachines = async () => {
-        const { data } = await supabase.from('machines').select('id, name').order('name');
-        if (data) setMachines(data);
-      };
-      fetchMachines();
-    }
-  }, [view]);
-
   const handleLogin = async () => {
     try {
       setIsLoggingIn(true);
@@ -81,6 +54,43 @@ function LoginContent() {
       setIsLoggingIn(false);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      router.push('/');
+      return;
+    }
+    
+    // Auto-login flow when clicking invitation email
+    const auto = searchParams.get('auto') === 'true' || searchParams.get('provider') === 'google';
+    const errorParam = searchParams.get('error');
+    if (auto && !errorParam && !isLoggingIn) {
+      handleLogin();
+    }
+    
+    // Verificar IP para el reporte de producción
+    const checkIP = async () => {
+      try {
+        const res = await fetch('https://api64.ipify.org?format=json');
+        const data = await res.json();
+        setUserIP(data.ip);
+        setIsIPAuthorized(data.ip === AUTHORIZED_IP);
+      } catch (err) {
+        console.error("Error al verificar IP:", err);
+      }
+    };
+    checkIP();
+  }, [user, router, searchParams, isLoggingIn]);
+
+  useEffect(() => {
+    if (view === 'report') {
+      const fetchMachines = async () => {
+        const { data } = await supabase.from('machines').select('id, name').order('name');
+        if (data) setMachines(data);
+      };
+      fetchMachines();
+    }
+  }, [view]);
 
   const handleVerifyEmployee = async (e) => {
     e.preventDefault();

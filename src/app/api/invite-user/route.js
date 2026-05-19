@@ -59,11 +59,11 @@ export async function POST(request) {
             </div>
 
             <p style="font-size: 15px; color: #475569; line-height: 1.6; margin-top: 25px;">
-              Para acceder por primera vez y activar tu cuenta, por favor inicia sesión utilizando tu cuenta corporativa de Google dando clic al siguiente botón:
+              Para acceder por primera vez y activar tu cuenta, por favor haz clic en el siguiente botón. Serás redirigido directamente a la pantalla para iniciar sesión de forma automática con tu cuenta corporativa de Google:
             </p>
             
             <div style="text-align: center; margin: 35px 0;">
-              <a href="${baseUrl}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Aceptar Invitación e Iniciar Sesión</a>
+              <a href="${baseUrl}/login?auto=true" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Aceptar Invitación e Iniciar Sesión</a>
             </div>
             
             <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
