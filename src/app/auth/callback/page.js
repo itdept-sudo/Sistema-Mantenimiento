@@ -65,6 +65,14 @@ export default function AuthCallbackPage() {
                 role: targetRole
               });
           }
+
+          // 4. Clean up pre_approved_users once successfully logged in
+          if (preApproved) {
+            await supabase
+              .from('pre_approved_users')
+              .delete()
+              .eq('email', userEmail);
+          }
         } catch (err) {
           console.error("Error setting user role:", err);
         }

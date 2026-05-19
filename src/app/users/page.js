@@ -266,7 +266,7 @@ export default function UsersPage() {
       </div>
 
       {/* Invitaciones Pendientes */}
-      {preApprovedUsers.length > 0 && (
+      {preApprovedUsers.filter(p => !profiles.some(active => active.email?.toLowerCase() === p.email?.toLowerCase())).length > 0 && (
         <div className="bg-slate-900/50 border border-slate-800 rounded-3xl overflow-hidden flex-shrink-0">
           <div className="p-6 border-b border-slate-800 bg-slate-900 flex justify-between items-center">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -287,7 +287,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {preApprovedUsers.map((user) => (
+                {preApprovedUsers.filter(p => !profiles.some(active => active.email?.toLowerCase() === p.email?.toLowerCase())).map((user) => (
                   <tr key={user.email} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-slate-200 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-500 border border-dashed border-slate-700 uppercase font-bold">

@@ -28,6 +28,13 @@ export const AuthProvider = ({ children }) => {
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
       if (error || !data) {
+        // If we are currently on the auth callback page, bypass the logout revocation.
+        // The callback page is responsible for initializing the profile.
+        if (typeof window !== 'undefined' && window.location.pathname === '/auth/callback') {
+          console.log("Auth callback page detected. Bypassing instant logout.");
+          return;
+        }
+        
         console.warn("No active profile found for authenticated user. Revoking access.");
         logout();
         return;
