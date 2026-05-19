@@ -103,13 +103,14 @@ export default function UsersPage() {
     e.preventDefault();
     if (!inviteEmail) return;
     
+    const formattedEmail = inviteEmail.trim().toLowerCase();
     setIsInviting(true);
     try {
       // 1. Check if user already exists in profiles
       const { data: existingUser } = await supabase
         .from('profiles')
         .select('id')
-        .eq('email', inviteEmail)
+        .eq('email', formattedEmail)
         .maybeSingle();
       
       if (existingUser) {
@@ -121,7 +122,7 @@ export default function UsersPage() {
       // 2. Insert into pre_approved_users
       const { error } = await supabase
         .from('pre_approved_users')
-        .upsert({ email: inviteEmail, role: inviteRole });
+        .upsert({ email: formattedEmail, role: inviteRole });
 
       if (error) {
         if (error.code === '42P01') {
@@ -138,7 +139,7 @@ export default function UsersPage() {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              email: inviteEmail,
+              email: formattedEmail,
               role: inviteRole
             })
           });
@@ -266,7 +267,7 @@ export default function UsersPage() {
       </div>
 
       {/* Invitaciones Pendientes */}
-      {preApprovedUsers.filter(p => !profiles.some(active => active.email?.toLowerCase() === p.email?.toLowerCase())).length > 0 && (
+      {preApprovedUsers.filter(p => !profiles.some(active => active.email?.toLowerCase().trim() === p.email?.toLowerCase().trim())).length > 0 && (
         <div className="bg-slate-900/50 border border-slate-800 rounded-3xl overflow-hidden flex-shrink-0">
           <div className="p-6 border-b border-slate-800 bg-slate-900 flex justify-between items-center">
             <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -287,7 +288,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/50">
-                {preApprovedUsers.filter(p => !profiles.some(active => active.email?.toLowerCase() === p.email?.toLowerCase())).map((user) => (
+                {preApprovedUsers.filter(p => !profiles.some(active => active.email?.toLowerCase().trim() === p.email?.toLowerCase().trim())).map((user) => (
                   <tr key={user.email} className="hover:bg-white/[0.02] transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-slate-200 flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-500 border border-dashed border-slate-700 uppercase font-bold">
