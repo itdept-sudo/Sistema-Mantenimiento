@@ -20,7 +20,6 @@ export async function POST(request) {
         pass: process.env.SMTP_PASS,
       },
     });
-
     // 2. Mapear nombres de roles
     const roleNames = {
       admin: 'Administrador',

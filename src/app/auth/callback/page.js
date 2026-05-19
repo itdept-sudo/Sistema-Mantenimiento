@@ -21,6 +21,54 @@ export default function AuthCallbackPage() {
           return;
         }
 
+        // Determine the role for the user
+        try {
+          // 1. Check if the user is in pre_approved_users
+          const { data: preApproved } = await supabase
+            .from('pre_approved_users')
+            .select('role')
+            .eq('email', userEmail)
+            .maybeSingle();
+
+          // 2. Check their current profile
+          const { data: currentProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.session.user.id)
+            .maybeSingle();
+
+          let targetRole = 'employee'; // Default role if not pre-approved
+          if (preApproved) {
+            targetRole = preApproved.role;
+          } else if (currentProfile) {
+            // Keep admin, supervisor, and inventory roles to avoid downgrades
+            if (['admin', 'supervisor', 'inventory'].includes(currentProfile.role)) {
+              targetRole = currentProfile.role;
+            }
+          }
+
+          // 3. Upsert or update profile with the target role
+          if (currentProfile) {
+            if (currentProfile.role !== targetRole) {
+              await supabase
+                .from('profiles')
+                .update({ role: targetRole })
+                .eq('id', data.session.user.id);
+            }
+          } else {
+            await supabase
+              .from('profiles')
+              .insert({
+                id: data.session.user.id,
+                email: userEmail,
+                full_name: data.session.user.user_metadata?.full_name || userEmail.split('@')[0],
+                role: targetRole
+              });
+          }
+        } catch (err) {
+          console.error("Error setting user role:", err);
+        }
+
         router.push('/');
       } else {
         router.push('/login');
