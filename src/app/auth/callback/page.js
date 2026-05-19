@@ -23,11 +23,11 @@ export default function AuthCallbackPage() {
 
         // Determine the role for the user
         try {
-          // 1. Check if the user is in pre_approved_users
+          // 1. Check if the user is in pre_approved_users (case-insensitive check)
           const { data: preApproved } = await supabase
             .from('pre_approved_users')
             .select('role')
-            .eq('email', userEmail)
+            .ilike('email', userEmail)
             .maybeSingle();
 
           // 2. Check their current profile
@@ -66,12 +66,12 @@ export default function AuthCallbackPage() {
               });
           }
 
-          // 4. Clean up pre_approved_users once successfully logged in
+          // 4. Clean up pre_approved_users once successfully logged in (case-insensitive)
           if (preApproved) {
             await supabase
               .from('pre_approved_users')
               .delete()
-              .eq('email', userEmail);
+              .ilike('email', userEmail);
           }
         } catch (err) {
           console.error("Error setting user role:", err);
