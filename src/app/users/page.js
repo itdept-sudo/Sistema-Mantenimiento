@@ -73,12 +73,17 @@ export default function UsersPage() {
     
     try {
       // 1. Delete from profiles
-      const { error: profileError } = await supabase
+      const { data, error: profileError } = await supabase
         .from('profiles')
         .delete()
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
 
       if (profileError) throw profileError;
+
+      if (!data || data.length === 0) {
+        throw new Error("No se pudo eliminar el registro. Esto suele ocurrir por políticas de seguridad (RLS) en Supabase. Asegúrate de haber ejecutado la política de eliminación para administradores.");
+      }
 
       // 2. Also delete from pre_approved_users in case they were pre-approved
       await supabase
