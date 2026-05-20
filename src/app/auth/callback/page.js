@@ -61,10 +61,8 @@ export default function AuthCallbackPage() {
           if (preApproved) {
             targetRole = preApproved.role;
           } else if (currentProfile) {
-            // Keep admin, supervisor, and inventory roles to avoid downgrades
-            if (['admin', 'supervisor', 'inventory'].includes(currentProfile.role)) {
-              targetRole = currentProfile.role;
-            }
+            // Preserve the user's current role if they already have a profile
+            targetRole = currentProfile.role || 'employee';
           }
 
           // 3. Update or create profile — IMPORTANT: separate email/name updates from role updates
