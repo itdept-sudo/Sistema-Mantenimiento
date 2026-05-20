@@ -1,16 +1,24 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [errorDetails, setErrorDetails] = useState(null);
 
   useEffect(() => {
     const handleAuth = async () => {
       const { data, error } = await supabase.auth.getSession();
       
+      if (error) {
+        setErrorMsg("Error al obtener sesión de autenticación.");
+        setErrorDetails(error.message);
+        return;
+      }
+
       if (data?.session) {
         const userEmail = data.session.user.email;
         const domain = userEmail.split('@')[1];
@@ -24,20 +32,30 @@ export default function AuthCallbackPage() {
         // Determine the role for the user
         try {
           // 1. Check if the user is in pre_approved_users (trim & case-insensitive match in JS)
-          const { data: preApprovedList } = await supabase
+          const { data: preApprovedList, error: preApprovedError } = await supabase
             .from('pre_approved_users')
             .select('*');
+
+          if (preApprovedError) {
+            console.error("Error checking pre-approved users:", preApprovedError);
+          }
 
           const preApproved = preApprovedList?.find(
             p => p.email && p.email.toLowerCase().trim() === userEmail.toLowerCase().trim()
           );
 
           // 2. Check their current profile
-          const { data: currentProfile } = await supabase
+          const { data: currentProfile, error: profileFetchError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', data.session.user.id)
             .maybeSingle();
+
+          if (profileFetchError) {
+            setErrorMsg("Error al conectar con la tabla de perfiles en la base de datos.");
+            setErrorDetails(profileFetchError.message);
+            return;
+          }
 
           let targetRole = 'employee'; // Default role if not pre-approved
           if (preApproved) {
@@ -110,6 +128,9 @@ export default function AuthCallbackPage() {
                 });
               if (retryError) {
                 console.error("Retry insert also failed:", retryError);
+                setErrorMsg("No se pudo inicializar tu perfil de usuario en la base de datos.");
+                setErrorDetails(`Intento 1: ${insertError.message} | Intento 2: ${retryError.message}`);
+                return;
               }
             }
           }
@@ -127,6 +148,9 @@ export default function AuthCallbackPage() {
           }
         } catch (err) {
           console.error("Error setting user role:", err);
+          setErrorMsg("Excepción interna al procesar tu rol.");
+          setErrorDetails(err.message);
+          return;
         }
 
         router.push('/');
@@ -137,6 +161,34 @@ export default function AuthCallbackPage() {
 
     handleAuth();
   }, [router]);
+
+  if (errorMsg) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6">
+        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl text-center space-y-4">
+          <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-full flex items-center justify-center text-red-500 text-2xl mx-auto">
+            ⚠️
+          </div>
+          <h2 className="text-xl font-bold text-white">Error de Acceso</h2>
+          <p className="text-slate-400 text-sm">{errorMsg}</p>
+          {errorDetails && (
+            <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-red-400 text-left overflow-x-auto max-h-36">
+              {errorDetails}
+            </div>
+          )}
+          <button 
+            onClick={() => {
+              supabase.auth.signOut();
+              router.push('/login');
+            }}
+            className="w-full bg-slate-800 hover:bg-slate-700 text-white py-2.5 rounded-xl font-bold transition-colors"
+          >
+            Volver a Iniciar Sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950">
