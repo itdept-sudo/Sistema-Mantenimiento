@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  const refreshProfile = async (userId) => {
+  const refreshProfile = async (userId, sessionUser = null) => {
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
       if (error || !data) {
@@ -39,8 +39,35 @@ export const AuthProvider = ({ children }) => {
         logout();
         return;
       }
-      setProfile(data);
-      localStorage.setItem('user_role', data.role);
+
+      // Self-healing: Ensure email and full_name are correctly populated in the profiles table in the database
+      let currentProfileData = data;
+      if (sessionUser) {
+        const updates = {};
+        if (!data.email || data.email.toLowerCase().trim() !== sessionUser.email.toLowerCase().trim()) {
+          updates.email = sessionUser.email.toLowerCase().trim();
+        }
+        if (!data.full_name) {
+          updates.full_name = sessionUser.user_metadata?.full_name || sessionUser.email.split('@')[0];
+        }
+
+        if (Object.keys(updates).length > 0) {
+          console.log("Self-healing profile for user:", sessionUser.email, updates);
+          const { data: updatedData, error: updateError } = await supabase
+            .from('profiles')
+            .update(updates)
+            .eq('id', userId)
+            .select()
+            .maybeSingle();
+
+          if (!updateError && updatedData) {
+            currentProfileData = updatedData;
+          }
+        }
+      }
+
+      setProfile(currentProfileData);
+      localStorage.setItem('user_role', currentProfileData.role);
     } catch (err) {
       console.error("Error refreshing profile:", err);
     }
@@ -53,13 +80,13 @@ export const AuthProvider = ({ children }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null;
       setUser(u);
-      if (u) refreshProfile(u.id);
+      if (u) refreshProfile(u.id, u);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user ?? null;
       setUser(u);
-      if (u) refreshProfile(u.id);
+      if (u) refreshProfile(u.id, u);
       else {
         setProfile(null);
         localStorage.removeItem('user_role');

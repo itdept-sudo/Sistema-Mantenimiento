@@ -49,12 +49,23 @@ export default function AuthCallbackPage() {
             }
           }
 
-          // 3. Upsert or update profile with the target role
+          // 3. Upsert or update profile with the target role and self-heal missing/mismatched email or full name
           if (currentProfile) {
+            const updates = {};
             if (currentProfile.role !== targetRole) {
+              updates.role = targetRole;
+            }
+            if (!currentProfile.email || currentProfile.email.toLowerCase().trim() !== userEmail.toLowerCase().trim()) {
+              updates.email = userEmail.toLowerCase().trim();
+            }
+            if (!currentProfile.full_name) {
+              updates.full_name = data.session.user.user_metadata?.full_name || userEmail.split('@')[0];
+            }
+
+            if (Object.keys(updates).length > 0) {
               await supabase
                 .from('profiles')
-                .update({ role: targetRole })
+                .update(updates)
                 .eq('id', data.session.user.id);
             }
           } else {

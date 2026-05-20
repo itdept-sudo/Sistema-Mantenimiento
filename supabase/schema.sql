@@ -136,3 +136,34 @@ CREATE TRIGGER on_auth_user_created
 -- HABILITAR REALTIME PARA TABLAS CLAVE
 ALTER PUBLICATION supabase_realtime ADD TABLE public.work_orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.machines;
+
+-- Tabla de Usuarios Pre-Aprobados (Invitaciones)
+CREATE TABLE public.pre_approved_users (
+  email TEXT PRIMARY KEY,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'supervisor', 'inventory', 'technician', 'employee')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.pre_approved_users ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para pre_approved_users:
+-- 1. Permitir leer a cualquier usuario autenticado (para verificar si está invitado durante el login)
+CREATE POLICY "Allow select for authenticated users" 
+ON public.pre_approved_users FOR SELECT 
+USING (auth.uid() IS NOT NULL);
+
+-- 2. Permitir eliminar su propia invitación al usuario que se registra
+CREATE POLICY "Allow self delete on invitation" 
+ON public.pre_approved_users FOR DELETE 
+USING (email = auth.jwt() ->> 'email');
+
+-- 3. Permitir todo a administradores (crear, ver, editar, eliminar)
+CREATE POLICY "Allow all actions for admin users" 
+ON public.pre_approved_users FOR ALL 
+USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  )
+);
+
