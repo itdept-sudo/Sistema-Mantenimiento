@@ -287,22 +287,6 @@ export default function UsersPage() {
         </div>
         <div className="flex gap-3">
           <button 
-            onClick={handleRepairSync}
-            disabled={isRepairing}
-            className="bg-amber-600 hover:bg-amber-500 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-lg shadow-amber-500/20 disabled:opacity-50"
-          >
-            <Wrench className={`w-5 h-5 ${isRepairing ? 'animate-spin' : ''}`} />
-            {isRepairing ? 'Reparando...' : 'Reparar Sincronización'}
-          </button>
-          <button 
-            onClick={runDiagnostics}
-            disabled={isDiagnosing}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors border border-slate-700 disabled:opacity-50"
-          >
-            <Activity className={`w-5 h-5 ${isDiagnosing ? 'animate-pulse text-blue-400' : ''}`} />
-            {isDiagnosing ? 'Diagnosticando...' : 'Diagnosticar'}
-          </button>
-          <button 
             onClick={() => setIsInviteModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-lg shadow-blue-500/20"
           >
@@ -312,51 +296,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Repair Result Banner */}
-      {repairResult && (
-        <div className={`p-4 rounded-2xl border flex-shrink-0 ${
-          repairResult.success 
-            ? 'bg-emerald-500/10 border-emerald-500/30' 
-            : 'bg-red-500/10 border-red-500/30'
-        }`}>
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className={`font-bold text-sm ${
-                repairResult.success ? 'text-emerald-400' : 'text-red-400'
-              }`}>
-                {repairResult.success ? '✅ ' : '❌ '}{repairResult.message}
-              </h4>
-              {repairResult.results && (
-                <div className="mt-2 space-y-1 text-xs text-slate-300">
-                  {repairResult.results.profilesWithNullEmail?.length > 0 && (
-                    <p>📋 Perfiles con email vacío encontrados: {repairResult.results.profilesWithNullEmail.map(p => p.full_name).join(', ')}</p>
-                  )}
-                  {repairResult.results.preApprovedCleaned?.length > 0 && (
-                    <p>🧹 Acciones de limpieza: {repairResult.results.preApprovedCleaned.join(', ')}</p>
-                  )}
-                  {repairResult.results.errors?.length > 0 && (
-                    <div className="mt-2 p-3 bg-red-500/10 rounded-xl border border-red-500/20">
-                      <p className="font-bold text-red-400 mb-1">⚠️ Errores que requieren acción manual:</p>
-                      {repairResult.results.errors.map((e, i) => (
-                        <p key={i} className="text-red-300 text-[11px] font-mono break-all">{e}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {repairResult.details && (
-                <p className="text-xs text-red-300 mt-1 font-mono">{repairResult.details}</p>
-              )}
-            </div>
-            <button 
-              onClick={() => setRepairResult(null)}
-              className="text-slate-500 hover:text-white text-sm font-bold ml-4"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* Usuarios Activos */}
       <div className="bg-slate-900/50 border border-slate-800 rounded-3xl overflow-hidden flex-shrink-0">
@@ -527,119 +467,6 @@ export default function UsersPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Diagnóstico */}
-      {debugInfo && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col max-h-[85vh]">
-            <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-4">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Activity className="w-6 h-6 text-blue-500" />
-                Diagnóstico de Sincronización de Usuarios
-              </h3>
-              <button 
-                onClick={() => setDebugInfo(null)}
-                className="text-slate-400 hover:text-white font-bold px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
-            
-            <div className="overflow-y-auto space-y-6 flex-1 pr-2">
-              <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800 space-y-2">
-                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Tu Sesión Administradora</h4>
-                <pre className="text-xs text-emerald-400 font-mono overflow-x-auto">
-                  {JSON.stringify(debugInfo.currentUser, null, 2)}
-                </pre>
-                {debugInfo.authError && (
-                  <p className="text-xs text-red-400 mt-1">Error de Auth: {debugInfo.authError}</p>
-                )}
-              </div>
-
-              <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800 space-y-2">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Tabla de Perfiles (`profiles` en DB)</h4>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                    Total: {debugInfo.activeProfilesCount}
-                  </span>
-                </div>
-                {debugInfo.profilesError ? (
-                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400">
-                    ⚠️ Error al leer perfiles (Posible problema de RLS): {debugInfo.profilesError}
-                  </div>
-                ) : (
-                  <div className="max-h-48 overflow-y-auto border border-slate-800/50 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-950 border-b border-slate-800">
-                          <th className="p-2 font-bold text-slate-500">Nombre</th>
-                          <th className="p-2 font-bold text-slate-500">Email</th>
-                          <th className="p-2 font-bold text-slate-500">Rol</th>
-                          <th className="p-2 font-bold text-slate-500">ID</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/30">
-                        {debugInfo.profilesList.map(p => (
-                          <tr key={p.id} className="hover:bg-slate-900/50">
-                            <td className="p-2 font-medium text-slate-200">{p.full_name || 'NULL'}</td>
-                            <td className="p-2 text-slate-400 font-mono">{p.email || <span className="text-red-400 font-bold">⚠️ NULL / VACÍO</span>}</td>
-                            <td className="p-2 text-slate-400">{p.role}</td>
-                            <td className="p-2 text-slate-600 font-mono text-[10px]">{p.id}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4 bg-slate-950/50 rounded-2xl border border-slate-800 space-y-2">
-                <div className="flex justify-between items-center">
-                  <h4 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Tabla de Invitaciones (`pre_approved_users`)</h4>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                    Total: {debugInfo.preApprovedCount}
-                  </span>
-                </div>
-                {debugInfo.preApprovedError ? (
-                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400">
-                    ⚠️ Error al leer invitaciones: {debugInfo.preApprovedError}
-                  </div>
-                ) : (
-                  <div className="max-h-48 overflow-y-auto border border-slate-800/50 rounded-xl overflow-hidden">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-950 border-b border-slate-800">
-                          <th className="p-2 font-bold text-slate-500">Email Invitado</th>
-                          <th className="p-2 font-bold text-slate-500">Rol</th>
-                          <th className="p-2 font-bold text-slate-500">Fecha Alta</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/30">
-                        {debugInfo.preApprovedList.map(p => (
-                          <tr key={p.email} className="hover:bg-slate-900/50">
-                            <td className="p-2 text-slate-200 font-mono">{p.email}</td>
-                            <td className="p-2 text-slate-400">{p.role}</td>
-                            <td className="p-2 text-slate-500">{p.created_at ? new Date(p.created_at).toLocaleString() : 'N/A'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl space-y-2">
-                <h4 className="text-sm font-bold text-blue-400 uppercase tracking-wider">💡 ¿Cómo resolver discrepancias usando este diagnóstico?</h4>
-                <ul className="list-disc pl-5 text-xs text-slate-300 space-y-1">
-                  <li><strong>Caso A:</strong> Si el usuario Miguel Miranda aparece en la tabla superior (`profiles`) con su correo exactamente en <code>miguel.miranda@prosper-mfg.com</code>, pero sigue apareciendo abajo, verifica que las mayúsculas/minúsculas y espacios coincidan.</li>
-                  <li><strong>Caso B:</strong> Si el usuario Miguel Miranda aparece en la tabla superior pero con la columna de Email en <span className="text-red-400 font-bold">⚠️ NULL / VACÍO</span>, pídele al usuario que simplemente <strong>cierre sesión y vuelva a entrar</strong>. Nuestra nueva actualización auto-sanará su correo al instante.</li>
-                  <li><strong>Caso C:</strong> Si Miguel Miranda no aparece en la tabla superior (`profiles`), es que ingresó con una cuenta diferente. Identifica su correo real en la lista de activos y dale de alta con ese correo exacto.</li>
-                </ul>
-              </div>
-            </div>
           </div>
         </div>
       )}
