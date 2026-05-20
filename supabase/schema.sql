@@ -11,7 +11,7 @@ CREATE TABLE public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   full_name TEXT,
   email TEXT,
-  role TEXT DEFAULT 'technician' CHECK (role IN ('manager', 'technician')),
+  role TEXT DEFAULT 'technician' CHECK (role IN ('admin', 'manager', 'supervisor', 'inventory', 'technician', 'employee')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -97,6 +97,12 @@ ALTER TABLE public.maintenance_schedules ENABLE ROW LEVEL SECURITY;
 -- Perfiles: Todos pueden ver perfiles, solo el dueño puede editar su nombre.
 CREATE POLICY "Profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Admins can update any profile" ON public.profiles FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'admin'
+  )
+);
 
 -- Máquinas: Todos pueden ver, solo managers pueden editar.
 CREATE POLICY "Machines are viewable by everyone" ON public.machines FOR SELECT USING (true);
@@ -119,12 +125,21 @@ CREATE POLICY "Authenticated users can update work orders" ON public.work_orders
 CREATE POLICY "Order parts are viewable by everyone" ON public.order_parts FOR SELECT USING (true);
 CREATE POLICY "Authenticated users can manage order parts" ON public.order_parts FOR ALL USING (auth.uid() IS NOT NULL);
 
--- TRIGGER para crear perfil automáticamente al registrarse un usuario en Auth
+-- TRIGGER para crear perfil automáticamente al registrarse un usuario en Auth (con auto-sanación y manejo de conflictos)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.profiles (id, full_name, email, role)
-  VALUES (new.id, new.raw_user_meta_data->>'full_name', new.email, 'technician');
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)), 
+    new.email, 
+    'technician'
+  )
+  ON CONFLICT (id) DO UPDATE 
+  SET 
+    email = EXCLUDED.email,
+    full_name = COALESCE(profiles.full_name, EXCLUDED.full_name);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

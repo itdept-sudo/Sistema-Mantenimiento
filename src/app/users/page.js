@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Users, Shield, UserCog, Mail, Calendar, CheckCircle, Activity, RefreshCw } from 'lucide-react';
+import { Users, Shield, UserCog, Mail, Calendar, CheckCircle, Activity, RefreshCw, Wrench } from 'lucide-react';
 
 export default function UsersPage() {
   const [profiles, setProfiles] = useState([]);
@@ -19,6 +19,10 @@ export default function UsersPage() {
   // Diagnostic state
   const [debugInfo, setDebugInfo] = useState(null);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
+
+  // Repair state
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [repairResult, setRepairResult] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -72,6 +76,40 @@ export default function UsersPage() {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRepairSync = async () => {
+    setIsRepairing(true);
+    setRepairResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setRepairResult({ success: false, message: 'No hay sesión activa. Inicia sesión nuevamente.' });
+        return;
+      }
+
+      const response = await fetch('/api/admin/sync-profiles', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setRepairResult(data);
+        // Refresh the page data
+        await fetchUsers();
+      } else {
+        setRepairResult({ success: false, message: data.error || 'Error desconocido', details: data.details });
+      }
+    } catch (err) {
+      setRepairResult({ success: false, message: 'Error de conexión: ' + err.message });
+    } finally {
+      setIsRepairing(false);
     }
   };
 
@@ -249,12 +287,20 @@ export default function UsersPage() {
         </div>
         <div className="flex gap-3">
           <button 
+            onClick={handleRepairSync}
+            disabled={isRepairing}
+            className="bg-amber-600 hover:bg-amber-500 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors shadow-lg shadow-amber-500/20 disabled:opacity-50"
+          >
+            <Wrench className={`w-5 h-5 ${isRepairing ? 'animate-spin' : ''}`} />
+            {isRepairing ? 'Reparando...' : 'Reparar Sincronización'}
+          </button>
+          <button 
             onClick={runDiagnostics}
             disabled={isDiagnosing}
             className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-colors border border-slate-700 disabled:opacity-50"
           >
             <Activity className={`w-5 h-5 ${isDiagnosing ? 'animate-pulse text-blue-400' : ''}`} />
-            {isDiagnosing ? 'Diagnosticando...' : 'Diagnosticar Sincronización'}
+            {isDiagnosing ? 'Diagnosticando...' : 'Diagnosticar'}
           </button>
           <button 
             onClick={() => setIsInviteModalOpen(true)}
@@ -265,6 +311,52 @@ export default function UsersPage() {
           </button>
         </div>
       </div>
+
+      {/* Repair Result Banner */}
+      {repairResult && (
+        <div className={`p-4 rounded-2xl border flex-shrink-0 ${
+          repairResult.success 
+            ? 'bg-emerald-500/10 border-emerald-500/30' 
+            : 'bg-red-500/10 border-red-500/30'
+        }`}>
+          <div className="flex justify-between items-start">
+            <div>
+              <h4 className={`font-bold text-sm ${
+                repairResult.success ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {repairResult.success ? '✅ ' : '❌ '}{repairResult.message}
+              </h4>
+              {repairResult.results && (
+                <div className="mt-2 space-y-1 text-xs text-slate-300">
+                  {repairResult.results.profilesWithNullEmail?.length > 0 && (
+                    <p>📋 Perfiles con email vacío encontrados: {repairResult.results.profilesWithNullEmail.map(p => p.full_name).join(', ')}</p>
+                  )}
+                  {repairResult.results.preApprovedCleaned?.length > 0 && (
+                    <p>🧹 Acciones de limpieza: {repairResult.results.preApprovedCleaned.join(', ')}</p>
+                  )}
+                  {repairResult.results.errors?.length > 0 && (
+                    <div className="mt-2 p-3 bg-red-500/10 rounded-xl border border-red-500/20">
+                      <p className="font-bold text-red-400 mb-1">⚠️ Errores que requieren acción manual:</p>
+                      {repairResult.results.errors.map((e, i) => (
+                        <p key={i} className="text-red-300 text-[11px] font-mono break-all">{e}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {repairResult.details && (
+                <p className="text-xs text-red-300 mt-1 font-mono">{repairResult.details}</p>
+              )}
+            </div>
+            <button 
+              onClick={() => setRepairResult(null)}
+              className="text-slate-500 hover:text-white text-sm font-bold ml-4"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Usuarios Activos */}
       <div className="bg-slate-900/50 border border-slate-800 rounded-3xl overflow-hidden flex-shrink-0">

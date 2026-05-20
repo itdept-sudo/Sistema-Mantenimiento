@@ -49,27 +49,46 @@ export default function AuthCallbackPage() {
             }
           }
 
-          // 3. Upsert or update profile with the target role and self-heal missing/mismatched email or full name
+          // 3. Update or create profile — IMPORTANT: separate email/name updates from role updates
+          // so that a CHECK constraint failure on role doesn't block email self-healing
           if (currentProfile) {
-            const updates = {};
-            if (currentProfile.role !== targetRole) {
-              updates.role = targetRole;
-            }
+            // Step A: Always fix email and full_name first (independent operation)
+            const identityUpdates = {};
             if (!currentProfile.email || currentProfile.email.toLowerCase().trim() !== userEmail.toLowerCase().trim()) {
-              updates.email = userEmail.toLowerCase().trim();
+              identityUpdates.email = userEmail.toLowerCase().trim();
             }
             if (!currentProfile.full_name) {
-              updates.full_name = data.session.user.user_metadata?.full_name || userEmail.split('@')[0];
+              identityUpdates.full_name = data.session.user.user_metadata?.full_name || userEmail.split('@')[0];
             }
 
-            if (Object.keys(updates).length > 0) {
-              await supabase
+            if (Object.keys(identityUpdates).length > 0) {
+              const { error: identityError } = await supabase
                 .from('profiles')
-                .update(updates)
+                .update(identityUpdates)
                 .eq('id', data.session.user.id);
+              
+              if (identityError) {
+                console.error("Error updating profile identity (email/name):", identityError);
+              } else {
+                console.log("Profile identity updated successfully:", identityUpdates);
+              }
+            }
+
+            // Step B: Try to update role separately (may fail due to CHECK constraint)
+            if (currentProfile.role !== targetRole) {
+              const { error: roleError } = await supabase
+                .from('profiles')
+                .update({ role: targetRole })
+                .eq('id', data.session.user.id);
+              
+              if (roleError) {
+                console.error("Error updating role (CHECK constraint?):", roleError);
+                // Role update failed but email was already fixed above
+              }
             }
           } else {
-            await supabase
+            // New profile - try insert with target role, fallback to 'technician' if CHECK fails
+            const { error: insertError } = await supabase
               .from('profiles')
               .insert({
                 id: data.session.user.id,
@@ -77,14 +96,34 @@ export default function AuthCallbackPage() {
                 full_name: data.session.user.user_metadata?.full_name || userEmail.split('@')[0],
                 role: targetRole
               });
+
+            if (insertError) {
+              console.error("Error inserting profile with role", targetRole, ":", insertError);
+              // Retry with default 'technician' role in case CHECK constraint blocks the custom role
+              const { error: retryError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: data.session.user.id,
+                  email: userEmail.toLowerCase().trim(),
+                  full_name: data.session.user.user_metadata?.full_name || userEmail.split('@')[0],
+                  role: 'technician'
+                });
+              if (retryError) {
+                console.error("Retry insert also failed:", retryError);
+              }
+            }
           }
 
           // 4. Clean up pre_approved_users once successfully logged in (case & space insensitive)
           if (preApproved) {
-            await supabase
+            const { error: deleteError } = await supabase
               .from('pre_approved_users')
               .delete()
               .eq('email', preApproved.email);
+            
+            if (deleteError) {
+              console.error("Error cleaning up pre_approved entry:", deleteError);
+            }
           }
         } catch (err) {
           console.error("Error setting user role:", err);
