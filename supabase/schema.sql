@@ -103,6 +103,7 @@ CREATE POLICY "Admins can update any profile" ON public.profiles FOR UPDATE USIN
     WHERE id = auth.uid() AND role = 'admin'
   )
 );
+CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- Máquinas: Todos pueden ver, solo managers pueden editar.
 CREATE POLICY "Machines are viewable by everyone" ON public.machines FOR SELECT USING (true);
