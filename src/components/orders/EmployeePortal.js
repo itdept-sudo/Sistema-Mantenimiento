@@ -115,9 +115,51 @@ export default function EmployeePortal() {
     }
   };
 
+  const findBestTechnician = async () => {
+    try {
+      const { data: techs } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('role', 'technician');
+      
+      if (!techs || techs.length === 0) return null;
+
+      const { data: orders } = await supabase
+        .from('work_orders')
+        .select('technician_id')
+        .not('status', 'in', '("closed","resolved")');
+      
+      const counts = techs.map(t => ({
+        ...t,
+        count: orders?.filter(o => o.technician_id === t.id).length || 0
+      }));
+
+      counts.sort((a, b) => a.count - b.count);
+      return counts[0];
+    } catch (err) {
+      console.error("Error in findBestTechnician:", err);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+
+    let assignedTech = null;
+    try {
+      const { data: setting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('key', 'auto_assign')
+        .maybeSingle();
+
+      if (setting?.value?.enabled) {
+        assignedTech = await findBestTechnician();
+      }
+    } catch (err) {
+      console.warn("Auto-assign check failed in EmployeePortal:", err);
+    }
 
     let photoUrls = [];
     if (photoFile) {
@@ -146,7 +188,8 @@ export default function EmployeePortal() {
         status:           'open',
         reporter_name:    profile?.full_name || user?.email?.split('@')[0],
         reporter_emp_num: user?.email,
-        photo_urls:       photoUrls.length > 0 ? photoUrls : null
+        photo_urls:       photoUrls.length > 0 ? photoUrls : null,
+        technician_id:    assignedTech?.id || null
       }])
       .select('id')
       .single();
@@ -154,6 +197,29 @@ export default function EmployeePortal() {
     if (error) {
       alert('Error al crear la orden: ' + error.message);
     } else {
+      if (newOrder && assignedTech?.id) {
+        // Registrar al técnico en la tabla de equipos
+        await supabase
+          .from('work_order_technicians')
+          .insert({ work_order_id: newOrder.id, technician_id: assignedTech.id });
+
+        // Enviar notificación por correo
+        const machineName = machines?.find(m => String(m.id) === String(formData.machine_id))?.name || 'Máquina';
+        fetch('/api/notify-tech', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: newOrder.id,
+            machineName: machineName,
+            priority: formData.priority,
+            description: formData.description,
+            maintenanceType: 'corrective',
+            techEmail: assignedTech.email,
+            techName: assignedTech.full_name
+          })
+        }).catch(err => console.error("Error trigger email:", err));
+      }
+
       // Mark machine as failure
       if (formData.machine_id) {
         await supabase

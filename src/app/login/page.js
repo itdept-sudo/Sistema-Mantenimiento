@@ -130,9 +130,9 @@ function LoginContent() {
   const findBestTechnician = async () => {
     try {
       // Fetch technicians
-      const { data: techs } = await itamSupabase // Using itamSupabase to check profiles if needed or regular supabase
+      const { data: techs } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, full_name, email')
         .eq('role', 'technician');
       
       if (!techs || techs.length === 0) return null;
@@ -144,13 +144,13 @@ function LoginContent() {
         .not('status', 'in', '("closed","resolved")');
       
       const counts = techs.map(t => ({
-        id: t.id,
+        ...t,
         count: orders?.filter(o => o.technician_id === t.id).length || 0
       }));
 
       // Sort by count and pick the best one
       counts.sort((a, b) => a.count - b.count);
-      return counts[0].id;
+      return counts[0];
     } catch (err) {
       console.error("Error in findBestTechnician:", err);
       return null;
@@ -163,7 +163,7 @@ function LoginContent() {
     setError(null);
     try {
       // 1. Check Auto-Assign Setting
-      let assignedTechId = null;
+      let assignedTech = null;
       try {
         const { data: setting } = await supabase
           .from('system_settings')
@@ -172,7 +172,7 @@ function LoginContent() {
           .maybeSingle();
         
         if (setting?.value?.enabled) {
-          assignedTechId = await findBestTechnician();
+          assignedTech = await findBestTechnician();
         }
       } catch (err) {
         console.warn("Auto-assign setting check failed:", err);
@@ -190,19 +190,46 @@ function LoginContent() {
       }
 
       // 3. Insert Order
-      const { error: orderError } = await supabase.from('work_orders').insert([{
-        machine_id: formData.machine_id,
-        technician_id: assignedTechId,
-        description: formData.description,
-        priority: formData.priority,
-        maintenance_type: 'corrective',
-        status: 'open',
-        reporter_emp_num: employeeInfo.employee_number,
-        reporter_name: employeeInfo.full_name,
-        photo_urls: photoUrls.length > 0 ? photoUrls : null
-      }]);
+      const { data: newOrder, error: orderError } = await supabase
+        .from('work_orders')
+        .insert([{
+          machine_id: formData.machine_id,
+          technician_id: assignedTech?.id || null,
+          description: formData.description,
+          priority: formData.priority,
+          maintenance_type: 'corrective',
+          status: 'open',
+          reporter_emp_num: employeeInfo.employee_number,
+          reporter_name: employeeInfo.full_name,
+          photo_urls: photoUrls.length > 0 ? photoUrls : null
+        }])
+        .select('id')
+        .single();
 
       if (orderError) throw orderError;
+
+      if (newOrder && assignedTech?.id) {
+        // Registrar en work_order_technicians
+        await supabase
+          .from('work_order_technicians')
+          .insert({ work_order_id: newOrder.id, technician_id: assignedTech.id });
+
+        // Enviar notificación por correo
+        const machineName = machines?.find(m => String(m.id) === String(formData.machine_id))?.name || 'Máquina';
+        fetch('/api/notify-tech', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: newOrder.id,
+            machineName: machineName,
+            priority: formData.priority,
+            description: formData.description,
+            maintenanceType: 'corrective',
+            techEmail: assignedTech.email,
+            techName: assignedTech.full_name
+          })
+        }).catch(err => console.error("Error trigger email:", err));
+      }
 
       await supabase.from('machines').update({ status: 'failure' }).eq('id', formData.machine_id);
       setStep(3);
