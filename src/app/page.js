@@ -32,11 +32,13 @@ export default function Dashboard() {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Redirección de seguridad para Técnicos
+  // Redirección de seguridad para Técnicos y Empleados
   useEffect(() => {
     if (!authLoading && profile) {
       if (profile.role === 'technician') {
         router.push('/my-tasks');
+      } else if (profile.role === 'employee') {
+        router.push('/orders');
       }
     }
   }, [profile, authLoading, router]);
