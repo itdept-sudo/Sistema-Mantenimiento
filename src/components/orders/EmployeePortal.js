@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,7 +14,8 @@ import {
   Hammer,
   AlertTriangle,
   Loader2,
-  ChevronRight
+  ChevronRight,
+  Camera
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -46,6 +47,9 @@ export default function EmployeePortal() {
     description: '',
     priority: 'medium',
   });
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const fileInputRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
@@ -103,9 +107,34 @@ export default function EmployeePortal() {
     }
   }, [user]);
 
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+
+    let photoUrls = [];
+    if (photoFile) {
+      try {
+        const fileName = `report-${Date.now()}.${photoFile.name.split('.').pop()}`;
+        const { error: uploadError } = await supabase.storage.from('maintenance-photos').upload(fileName, photoFile);
+        let bucket = uploadError ? 'floor-plans' : 'maintenance-photos';
+        if (uploadError) {
+          const { error: fallbackError } = await supabase.storage.from(bucket).upload(fileName, photoFile);
+          if (fallbackError) throw fallbackError;
+        }
+        const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileName);
+        photoUrls.push(publicUrl);
+      } catch (uploadErr) {
+        console.error("Image upload failed:", uploadErr);
+      }
+    }
 
     const { data: newOrder, error } = await supabase
       .from('work_orders')
@@ -117,6 +146,7 @@ export default function EmployeePortal() {
         status:           'open',
         reporter_name:    profile?.full_name || user?.email?.split('@')[0],
         reporter_emp_num: user?.email,
+        photo_urls:       photoUrls.length > 0 ? photoUrls : null
       }])
       .select('id')
       .single();
@@ -133,6 +163,8 @@ export default function EmployeePortal() {
       }
       setSubmitSuccess(true);
       setFormData({ machine_id: '', description: '', priority: 'medium' });
+      setPhotoFile(null);
+      setPhotoPreview(null);
       fetchMyOrders();
       setTimeout(() => {
         setSubmitSuccess(false);
@@ -161,7 +193,11 @@ export default function EmployeePortal() {
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setPhotoFile(null);
+            setPhotoPreview(null);
+            setIsModalOpen(true);
+          }}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all active:scale-95 shrink-0"
         >
           <Plus className="w-5 h-5" />
@@ -273,7 +309,11 @@ export default function EmployeePortal() {
                       <p className="text-xs text-slate-500">Reporta una falla o incidencia.</p>
                     </div>
                     <button
-                      onClick={() => setIsModalOpen(false)}
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        setPhotoFile(null);
+                        setPhotoPreview(null);
+                      }}
                       className="ml-auto text-slate-500 hover:text-white transition-colors"
                     >
                       <X className="w-6 h-6" />
@@ -340,6 +380,41 @@ export default function EmployeePortal() {
                         placeholder="Describe con detalle la falla, cuándo ocurrió, qué comportamiento observaste..."
                         className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition-colors resize-none placeholder:text-slate-600"
                       />
+                    </div>
+
+                    {/* Photo Upload */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                        Adjuntar Imagen (Opcional)
+                      </label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        onChange={handlePhotoSelect} 
+                      />
+                      {!photoPreview ? (
+                        <button 
+                          type="button" 
+                          onClick={() => fileInputRef.current?.click()} 
+                          className="w-full border-2 border-dashed border-slate-800 bg-slate-950 hover:bg-slate-900/40 rounded-xl p-4 flex flex-col items-center justify-center text-slate-500 hover:text-slate-450 transition-colors gap-1.5"
+                        >
+                          <Camera className="w-5 h-5 text-slate-500" />
+                          <span className="text-xs font-bold">Adjuntar foto de la falla</span>
+                        </button>
+                      ) : (
+                        <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video flex items-center justify-center">
+                          <img src={photoPreview} alt="Vista previa" className="object-contain h-full w-full" />
+                          <button 
+                            type="button" 
+                            onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} 
+                            className="absolute top-2 right-2 p-1.5 bg-red-650 hover:bg-red-500 text-white rounded-lg transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -415,6 +490,15 @@ export default function EmployeePortal() {
                         <div>
                           <p className="text-xs font-bold text-slate-500 uppercase mb-1">Técnico Asignado</p>
                           <p className="text-white font-semibold text-sm">{selectedOrder.profiles.full_name}</p>
+                        </div>
+                      )}
+
+                      {selectedOrder.photo_urls && selectedOrder.photo_urls.length > 0 && (
+                        <div>
+                          <p className="text-xs font-bold text-slate-500 uppercase mb-2">Evidencia Fotográfica</p>
+                          <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video flex items-center justify-center">
+                            <img src={selectedOrder.photo_urls[0]} alt="Evidencia de la falla" className="object-contain h-full w-full" />
+                          </div>
                         </div>
                       )}
 
