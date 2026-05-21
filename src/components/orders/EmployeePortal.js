@@ -53,7 +53,7 @@ export default function EmployeePortal() {
     if (!user) return;
     setLoading(true);
     try {
-      // Filter orders where reporter_email matches user's email OR created by user (reporter_id = user.id)
+      // Filter orders where reporter_emp_num matches user's email
       const { data, error } = await supabase
         .from('work_orders')
         .select(`
@@ -61,7 +61,7 @@ export default function EmployeePortal() {
           machines (name),
           profiles!technician_id (full_name)
         `)
-        .or(`reporter_email.eq.${user.email},reporter_id.eq.${user.id}`)
+        .eq('reporter_emp_num', user.email)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -73,8 +73,7 @@ export default function EmployeePortal() {
           .order('created_at', { ascending: false });
 
         const myOrders = (allData || []).filter(o =>
-          o.reporter_email?.toLowerCase() === user.email?.toLowerCase() ||
-          o.reporter_id === user.id
+          o.reporter_emp_num?.toLowerCase() === user.email?.toLowerCase()
         );
         setOrders(myOrders);
       } else {
@@ -117,8 +116,7 @@ export default function EmployeePortal() {
         maintenance_type: 'corrective',
         status:           'open',
         reporter_name:    profile?.full_name || user?.email?.split('@')[0],
-        reporter_email:   user?.email,
-        reporter_id:      user?.id,
+        reporter_emp_num: user?.email,
       }])
       .select('id')
       .single();
