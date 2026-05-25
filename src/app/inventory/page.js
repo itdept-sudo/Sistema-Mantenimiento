@@ -15,7 +15,11 @@ import {
   Filter,
   RefreshCw,
   Box,
-  FileDown
+  FileDown,
+  X,
+  Save,
+  Calendar,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import InventoryModal from '@/components/inventory/InventoryModal';
@@ -29,6 +33,17 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   
+  // Multiple Inventories State
+  const [inventories, setInventories] = useState([]);
+  const [selectedInventoryId, setSelectedInventoryId] = useState(null);
+  const [selectedInventoryName, setSelectedInventoryName] = useState('');
+  
+  // New Inventory Modal State
+  const [isNewInvModalOpen, setIsNewInvModalOpen] = useState(false);
+  const [newInvName, setNewInvName] = useState('');
+  const [newInvDesc, setNewInvDesc] = useState('');
+  const [creatingInv, setCreatingInv] = useState(false);
+
   // Modals state
   const [isItemModalOpen, setIsItemModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -36,41 +51,115 @@ export default function InventoryPage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  const fetchInventory = async () => {
+  const fetchInventories = async () => {
     if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('inventories')
+        .select('*')
+        .order('name', { ascending: true });
+      
+      if (error) throw error;
+      if (data) {
+        setInventories(data);
+        // Default to Repuestos if found, otherwise first available
+        const repuestos = data.find(i => i.name === 'Repuestos');
+        if (repuestos && !selectedInventoryId) {
+          setSelectedInventoryId(repuestos.id);
+          setSelectedInventoryName(repuestos.name);
+        } else if (data.length > 0 && !selectedInventoryId) {
+          setSelectedInventoryId(data[0].id);
+          setSelectedInventoryName(data[0].name);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching inventories:", err);
+    }
+  };
+
+  const fetchInventory = async () => {
+    if (!supabase || !selectedInventoryId) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('inventory')
         .select('*')
+        .eq('inventory_id', selectedInventoryId)
         .order('name', { ascending: true });
       
       if (error) throw error;
       if (data) setItems(data);
     } catch (err) {
-      console.error("Error fetching inventory:", err);
+      console.error("Error fetching inventory items:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Load inventories list on mount
   useEffect(() => {
-    fetchInventory();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchInventories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // Real-time subscription
-    const channel = supabase.channel('inventory-sync')
+  // Fetch items whenever the selected inventory changes
+  useEffect(() => {
+    if (selectedInventoryId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchInventory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInventoryId]);
+
+  // Real-time synchronization
+  useEffect(() => {
+    if (!supabase) return;
+    
+    const channel = supabase.channel('inventory-sync-all')
       .on('postgres_changes', { event: '*', table: 'inventory' }, () => fetchInventory())
       .on('postgres_changes', { event: '*', table: 'inventory_logs' }, () => fetchInventory())
+      .on('postgres_changes', { event: '*', table: 'inventories' }, () => fetchInventories())
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInventoryId]);
+
+  const handleCreateInventory = async (e) => {
+    e.preventDefault();
+    if (!newInvName.trim() || !supabase) return;
+    setCreatingInv(true);
+    try {
+      const { data, error } = await supabase
+        .from('inventories')
+        .insert([{ name: newInvName, description: newInvDesc }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        setSelectedInventoryId(data.id);
+        setSelectedInventoryName(data.name);
+        setNewInvName('');
+        setNewInvDesc('');
+        setIsNewInvModalOpen(false);
+        await fetchInventories();
+      }
+    } catch (err) {
+      console.error("Error creating inventory:", err);
+      alert("Error al crear el inventario. Verifica que el nombre sea único.");
+    } finally {
+      setCreatingInv(false);
+    }
+  };
 
   const categories = ['All', ...new Set(items.map(i => i.category || 'General'))];
 
   const filteredItems = items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.part_number && item.part_number.toLowerCase().includes(searchTerm.toLowerCase()));
+                          (item.part_number && item.part_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (item.location && item.location.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
@@ -92,8 +181,10 @@ export default function InventoryPage() {
               <Box className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">Inventario de Repuestos</h1>
-              <p className="text-slate-400 text-sm">Gestión de stock, suministros y costos operativos.</p>
+              <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                Inventario: {selectedInventoryName || 'Cargando...'}
+              </h1>
+              <p className="text-slate-400 text-sm">Gestión de stock, suministros y consumos de material.</p>
             </div>
           </div>
         </div>
@@ -113,6 +204,36 @@ export default function InventoryPage() {
             <Plus className="w-5 h-5" /> Nuevo Item
           </button>
         </div>
+      </div>
+
+      {/* Inventory Tabs / Selector */}
+      <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-2 rounded-3xl border border-slate-800/80 backdrop-blur-md">
+        {inventories.map((inv) => {
+          const isActive = selectedInventoryId === inv.id;
+          return (
+            <button
+              key={inv.id}
+              onClick={() => {
+                setSelectedInventoryId(inv.id);
+                setSelectedInventoryName(inv.name);
+                setCategoryFilter('All');
+              }}
+              className={`relative px-5 py-3 rounded-2xl font-bold text-sm transition-all whitespace-nowrap active:scale-95 ${
+                isActive 
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+              }`}
+            >
+              {inv.name}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setIsNewInvModalOpen(true)}
+          className="px-5 py-3 rounded-2xl font-bold text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 border border-dashed border-blue-500/20 hover:border-blue-500/40 transition-all flex items-center gap-1.5 active:scale-95 ml-auto"
+        >
+          <Plus className="w-4 h-4" /> Nuevo Almacén
+        </button>
       </div>
 
       {/* Quick Stats Container */}
@@ -148,7 +269,7 @@ export default function InventoryPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input 
               type="text" 
-              placeholder="Buscar por código, nombre..." 
+              placeholder="Buscar por nombre, ubicación, código..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-blue-500 transition-all placeholder:text-slate-600"
@@ -183,8 +304,9 @@ export default function InventoryPage() {
               <tr className="bg-slate-950/30 text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] border-b border-slate-800/50">
                 <th className="px-6 py-5">Item Detalle</th>
                 <th className="px-6 py-5">Ubicación</th>
-                <th className="px-6 py-5 text-center">Stock</th>
-                <th className="px-6 py-5">Precio</th>
+                <th className="px-6 py-5 text-center">Stock / Límite</th>
+                <th className="px-6 py-5">Precio / Gasto</th>
+                <th className="px-6 py-5">Abasto Est.</th>
                 <th className="px-6 py-5 text-right">Acciones</th>
               </tr>
             </thead>
@@ -206,17 +328,24 @@ export default function InventoryPage() {
                         </div>
                         <div>
                           <p className="font-bold text-slate-200 group-hover:text-white transition-colors">{item.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] text-slate-500 font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{item.part_number || 'N/C'}</span>
-                            <span className="text-[10px] text-slate-600">•</span>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.category || 'General'}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {item.part_number && (
+                              <span className="text-[10px] text-slate-500 font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">{item.part_number}</span>
+                            )}
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest bg-slate-900/60 px-2 py-0.5 rounded">{item.unit || 'Piezas'}</span>
+                            {item.category && (
+                              <>
+                                <span className="text-[10px] text-slate-600">•</span>
+                                <span className="text-[10px] text-slate-500 italic">{item.category}</span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="text-sm text-slate-300 font-medium">{item.location || 'N/A'}</span>
+                        <span className="text-sm text-slate-300 font-medium">{item.location || 'Sin Ubicación'}</span>
                         <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">{item.provider || 'Genérico'}</span>
                       </div>
                     </td>
@@ -227,34 +356,62 @@ export default function InventoryPage() {
                           isLow ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' :
                           'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
                         }`}>
-                          {item.stock_current}
+                          {item.stock_current.toLocaleString()} {item.stock_max ? `/ ${item.stock_max.toLocaleString()}` : ''}
                         </div>
                         <span className="text-[10px] text-slate-500 font-bold">MIN: {item.stock_min}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-white font-bold">${item.unit_price?.toFixed(2)}</p>
-                      <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">USD UNIT</p>
+                      {item.unit_price > 0 ? (
+                        <>
+                          <p className="text-sm text-white font-bold">${item.unit_price?.toFixed(2)}</p>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">USD UNIT</p>
+                        </>
+                      ) : item.weekly_usage > 0 ? (
+                        <>
+                          <p className="text-sm text-slate-300 font-bold">{item.weekly_usage} {item.unit || 'Pz'}</p>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Consumo Semanal</p>
+                        </>
+                      ) : (
+                        <span className="text-slate-600 text-xs italic">Sin registrar</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      {item.estimated_date ? (
+                        <div className="flex flex-col">
+                          <span className="text-sm text-slate-300 font-semibold">{item.estimated_date}</span>
+                          {item.estimated_duration !== null && (
+                            <span className="text-[10px] text-slate-500 font-bold">Dura ~{item.estimated_duration} sem</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-xs italic">Estable</span>
+                      )}
+                      {item.extra_info && (
+                        <span className="text-[9px] text-slate-450 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded mt-1 block w-max max-w-[150px] truncate" title={item.extra_info}>
+                          {item.extra_info}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button 
                           onClick={() => { setSelectedItem(item); setIsHistoryModalOpen(true); }}
-                          className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-blue-400 rounded-xl transition-all shadow-sm"
+                          className="p-3 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-blue-400 rounded-xl transition-all shadow-sm"
                           title="Ver Historial"
                         >
                           <History className="w-5 h-5" />
                         </button>
                         <button 
                           onClick={() => { setSelectedItem(item); setIsStockModalOpen(true); }}
-                          className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-emerald-400 rounded-xl transition-all shadow-sm"
+                          className="p-3 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-emerald-400 rounded-xl transition-all shadow-sm"
                           title="Ajustar Stock"
                         >
                           <RefreshCw className="w-5 h-5" />
                         </button>
                         <button 
                           onClick={() => { setSelectedItem(item); setIsItemModalOpen(true); }}
-                          className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition-all shadow-sm"
+                          className="p-3 bg-slate-800 hover:bg-slate-750 text-slate-400 hover:text-white rounded-xl transition-all shadow-sm"
                           title="Editar Detalle"
                         >
                           <Edit className="w-5 h-5" />
@@ -275,12 +432,84 @@ export default function InventoryPage() {
         </div>
       </div>
 
+      {/* New Inventory Modal */}
+      <AnimatePresence>
+        {isNewInvModalOpen && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl"
+            >
+              <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-blue-400" />
+                  Nuevo Almacén / Inventario
+                </h3>
+                <button 
+                  onClick={() => setIsNewInvModalOpen(false)}
+                  className="p-2 hover:bg-slate-800 rounded-xl text-slate-400"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateInventory} className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400">Nombre del Inventario</label>
+                  <input
+                    required
+                    type="text"
+                    value={newInvName}
+                    onChange={e => setNewInvName(e.target.value)}
+                    placeholder="Ej: Materiales de Oficina, Herramientas"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-400">Descripción / Notas</label>
+                  <textarea
+                    value={newInvDesc}
+                    onChange={e => setNewInvDesc(e.target.value)}
+                    placeholder="Describe el propósito de este inventario..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 h-24 resize-none"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewInvModalOpen(false)}
+                    className="flex-1 py-3 bg-slate-850 hover:bg-slate-800 text-slate-350 rounded-xl font-bold transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingInv}
+                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all flex items-center justify-center gap-2"
+                  >
+                    {creatingInv ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <><Save className="w-4 h-4" /> Guardar</>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Modals */}
       <InventoryModal 
         isOpen={isItemModalOpen}
         onClose={() => setIsItemModalOpen(false)}
         item={selectedItem}
         onSuccess={fetchInventory}
+        selectedInventoryId={selectedInventoryId}
       />
       
       <StockAdjustmentModal 

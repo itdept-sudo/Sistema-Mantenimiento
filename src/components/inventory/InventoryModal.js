@@ -2,35 +2,48 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { X, Package, Hash, MapPin, DollarSign, Truck, AlertTriangle } from 'lucide-react';
+import { X, Package, Hash, MapPin, DollarSign, Truck, AlertTriangle, Calendar, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function InventoryModal({ isOpen, onClose, item = null, onSuccess }) {
+export default function InventoryModal({ isOpen, onClose, item = null, onSuccess, selectedInventoryId }) {
   const [formData, setFormData] = useState({
     name: '',
     part_number: '',
     description: '',
     stock_current: 0,
     stock_min: 5,
+    stock_max: '',
     location: '',
     unit_price: 0,
     provider: '',
-    category: 'General'
+    category: 'General',
+    unit: 'Piezas',
+    weekly_usage: '',
+    estimated_duration: '',
+    estimated_date: '',
+    extra_info: ''
   });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (item) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         name: item.name || '',
         part_number: item.part_number || '',
         description: item.description || '',
         stock_current: item.stock_current || 0,
         stock_min: item.stock_min || 0,
+        stock_max: item.stock_max !== null && item.stock_max !== undefined ? item.stock_max : '',
         location: item.location || '',
         unit_price: item.unit_price || 0,
         provider: item.provider || '',
-        category: item.category || 'General'
+        category: item.category || 'General',
+        unit: item.unit || 'Piezas',
+        weekly_usage: item.weekly_usage !== null && item.weekly_usage !== undefined ? item.weekly_usage : '',
+        estimated_duration: item.estimated_duration !== null && item.estimated_duration !== undefined ? item.estimated_duration : '',
+        estimated_date: item.estimated_date || '',
+        extra_info: item.extra_info || ''
       });
     } else {
       setFormData({
@@ -39,10 +52,16 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
         description: '',
         stock_current: 0,
         stock_min: 5,
+        stock_max: '',
         location: '',
         unit_price: 0,
         provider: '',
-        category: 'General'
+        category: 'General',
+        unit: 'Piezas',
+        weekly_usage: '',
+        estimated_duration: '',
+        estimated_date: '',
+        extra_info: ''
       });
     }
   }, [item, isOpen]);
@@ -51,17 +70,39 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
     e.preventDefault();
     setLoading(true);
 
+    const payload = {
+      name: formData.name,
+      part_number: formData.part_number || null,
+      description: formData.description || null,
+      stock_current: parseInt(formData.stock_current) || 0,
+      stock_min: parseInt(formData.stock_min) || 0,
+      stock_max: formData.stock_max === '' || formData.stock_max === null ? null : parseInt(formData.stock_max),
+      location: formData.location || null,
+      unit_price: formData.unit_price === '' || formData.unit_price === null ? 0 : parseFloat(formData.unit_price),
+      provider: formData.provider || null,
+      category: formData.category || 'General',
+      unit: formData.unit || 'Piezas',
+      weekly_usage: formData.weekly_usage === '' || formData.weekly_usage === null ? 0 : parseFloat(formData.weekly_usage),
+      estimated_duration: formData.estimated_duration === '' || formData.estimated_duration === null ? null : parseFloat(formData.estimated_duration),
+      estimated_date: formData.estimated_date || null,
+      extra_info: formData.extra_info || null
+    };
+
+    if (!item) {
+      payload.inventory_id = selectedInventoryId;
+    }
+
     try {
       if (item) {
         const { error } = await supabase
           .from('inventory')
-          .update(formData)
+          .update(payload)
           .eq('id', item.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('inventory')
-          .insert([formData]);
+          .insert([payload]);
         if (error) throw error;
       }
 
@@ -95,7 +136,7 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                 <h3 className="text-xl font-bold text-white">
                   {item ? 'Editar Item' : 'Nuevo Item de Inventario'}
                 </h3>
-                <p className="text-xs text-slate-500">Completa la información del repuesto o suministro.</p>
+                <p className="text-xs text-slate-500">Completa la información del suministro o repuesto.</p>
               </div>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 transition-colors">
@@ -110,8 +151,8 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                   <Hash className="w-3 h-3" /> Información Principal
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2 md:col-span-2">
                     <label className="text-sm font-medium text-slate-400">Nombre del Item</label>
                     <input 
                       required
@@ -119,17 +160,45 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                       value={formData.name}
                       onChange={e => setFormData({...formData, name: e.target.value})}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors"
-                      placeholder="Ej: Rodamiento SKF 6204"
+                      placeholder="Ej: Rodamiento SKF 6204 o Cloro"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-400">Número de Parte / Código</label>
+                    <label className="text-sm font-medium text-slate-400">Unidad de Medida</label>
+                    <select
+                      value={formData.unit}
+                      onChange={e => setFormData({...formData, unit: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors"
+                    >
+                      <option value="Piezas">Piezas (Pz)</option>
+                      <option value="Caja">Caja</option>
+                      <option value="Rollo">Rollo</option>
+                      <option value="COSTAL">Costal</option>
+                      <option value="Paquetes">Paquetes</option>
+                      <option value="Litros">Litros</option>
+                      <option value="Metros">Metros</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-400">Número de Parte / Código (Opcional)</label>
                     <input 
                       type="text" 
                       value={formData.part_number}
                       onChange={e => setFormData({...formData, part_number: e.target.value})}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors font-mono"
                       placeholder="Ej: PN-99234-A"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-400">Categoría</label>
+                    <input 
+                      type="text" 
+                      value={formData.category}
+                      onChange={e => setFormData({...formData, category: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors"
+                      placeholder="Ej: Mecánico, Consumibles, Limpieza"
                     />
                   </div>
                 </div>
@@ -140,25 +209,35 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                   <AlertTriangle className="w-3 h-3" /> Stock y Costos
                 </h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-400">Stock Actual</label>
-                    <input 
-                      required
-                      type="number" 
-                      value={formData.stock_current}
-                      onChange={e => setFormData({...formData, stock_current: parseInt(e.target.value)})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-400">Stock Mínimo</label>
+                    <label className="text-xs font-medium text-slate-400">Stock Min</label>
                     <input 
                       required
                       type="number" 
                       value={formData.stock_min}
-                      onChange={e => setFormData({...formData, stock_min: parseInt(e.target.value)})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500"
+                      onChange={e => setFormData({...formData, stock_min: parseInt(e.target.value) || 0})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3 text-white focus:border-blue-500 text-center"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-400">Stock Actual</label>
+                    <input 
+                      required
+                      type="number" 
+                      value={formData.stock_current}
+                      onChange={e => setFormData({...formData, stock_current: parseInt(e.target.value) || 0})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3 text-white focus:border-blue-500 text-center font-bold"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-400">Stock Max</label>
+                    <input 
+                      type="number" 
+                      value={formData.stock_max}
+                      onChange={e => setFormData({...formData, stock_max: e.target.value === '' ? '' : parseInt(e.target.value)})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-3 text-white focus:border-blue-500 text-center"
+                      placeholder="N/A"
                     />
                   </div>
                 </div>
@@ -170,7 +249,7 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                     type="number" 
                     step="0.01"
                     value={formData.unit_price}
-                    onChange={e => setFormData({...formData, unit_price: parseFloat(e.target.value)})}
+                    onChange={e => setFormData({...formData, unit_price: parseFloat(e.target.value) || 0})}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500"
                   />
                 </div>
@@ -190,11 +269,11 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                     value={formData.location}
                     onChange={e => setFormData({...formData, location: e.target.value})}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500"
-                    placeholder="Ej: Pasillo A, Estante 4"
+                    placeholder="Ej: Pasillo A, Rack 2 A"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-400">Proveedor</label>
+                  <label className="text-sm font-medium text-slate-400">Proveedor / Fabricante</label>
                   <input 
                     type="text" 
                     value={formData.provider}
@@ -205,8 +284,59 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                 </div>
               </div>
 
+              {/* Consumo y Abasto (Opcional) */}
+              <div className="md:col-span-2 space-y-4 bg-slate-950/20 p-5 border border-slate-850 rounded-2xl">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                  <Calendar className="w-3 h-3" /> Métricas de Consumo (Opcional)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-400">Gasto por Semana</label>
+                    <input 
+                      type="number" 
+                      step="0.1"
+                      value={formData.weekly_usage}
+                      onChange={e => setFormData({...formData, weekly_usage: e.target.value === '' ? '' : parseFloat(e.target.value)})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500"
+                      placeholder="Ej: 5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-400">Duración Est. (Semanas)</label>
+                    <input 
+                      type="number" 
+                      step="0.1"
+                      value={formData.estimated_duration}
+                      onChange={e => setFormData({...formData, estimated_duration: e.target.value === '' ? '' : parseFloat(e.target.value)})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500"
+                      placeholder="Ej: 12.5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-slate-400">Fecha Límite Est.</label>
+                    <input 
+                      type="text" 
+                      value={formData.estimated_date}
+                      onChange={e => setFormData({...formData, estimated_date: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500"
+                      placeholder="Ej: June 29"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2 mt-2">
+                  <label className="text-xs font-medium text-slate-400">Información Adicional / Nota de Columna</label>
+                  <input 
+                    type="text" 
+                    value={formData.extra_info}
+                    onChange={e => setFormData({...formData, extra_info: e.target.value})}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500"
+                    placeholder="Ej: Costales de bolsa, Entregado a TRIM..."
+                  />
+                </div>
+              </div>
+
               <div className="md:col-span-2 space-y-2">
-                <label className="text-sm font-medium text-slate-400">Notas / Descripción</label>
+                <label className="text-sm font-medium text-slate-400">Notas / Descripción General</label>
                 <textarea 
                   value={formData.description}
                   onChange={e => setFormData({...formData, description: e.target.value})}
@@ -242,3 +372,4 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
     </AnimatePresence>
   );
 }
+
