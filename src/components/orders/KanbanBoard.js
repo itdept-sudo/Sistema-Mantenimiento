@@ -29,6 +29,7 @@ const columns = [
 export default function KanbanBoard() {
   const { user, profile } = useAuth();
   const isAdmin = profile?.role === 'manager' || profile?.role === 'admin' || profile?.role === 'supervisor';
+  const isViewer = profile?.role === 'viewer';
   
   const [orders, setOrders] = useState([]);
   const [machines, setMachines] = useState([]);
@@ -269,12 +270,14 @@ export default function KanbanBoard() {
               Auto Modo: {autoAssign ? 'ON' : 'OFF'}
             </button>
           )}
-          <button 
-            onClick={() => setIsOrderModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
-          >
-            <Plus className="w-5 h-5" /> Nueva Orden
-          </button>
+          {!isViewer && (
+            <button 
+              onClick={() => setIsOrderModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
+            >
+              <Plus className="w-5 h-5" /> Nueva Orden
+            </button>
+          )}
         </div>
       </div>
 
@@ -327,8 +330,8 @@ export default function KanbanBoard() {
               {filteredOrders.filter(o => o.status === column.id).map((order) => (
                 <div 
                   key={order.id} 
-                  onClick={() => { setSelectedTask(order); setIsDetailModalOpen(true); }}
-                  className="p-4 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-700 transition-all cursor-pointer group"
+                  onClick={() => { if(!isViewer) { setSelectedTask(order); setIsDetailModalOpen(true); } }}
+                  className={`p-4 bg-slate-900 border border-slate-800 rounded-xl transition-all group ${!isViewer ? 'hover:border-slate-700 cursor-pointer' : 'cursor-default'}`}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded uppercase tracking-wider">

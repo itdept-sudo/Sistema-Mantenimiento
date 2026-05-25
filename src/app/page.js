@@ -37,7 +37,7 @@ export default function Dashboard() {
     if (!authLoading && profile) {
       if (profile.role === 'technician') {
         router.push('/my-tasks');
-      } else if (profile.role === 'employee') {
+      } else if (profile.role === 'employee' || profile.role === 'viewer') {
         router.push('/orders');
       }
     }
