@@ -16,7 +16,6 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
     location: '',
     unit_price: 0,
     provider: '',
-    category: 'General',
     unit: 'Piezas',
     weekly_usage: '',
     estimated_duration: '',
@@ -38,7 +37,6 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
         location: item.location || '',
         unit_price: item.unit_price || 0,
         provider: item.provider || '',
-        category: item.category || 'General',
         unit: item.unit || 'Piezas',
         weekly_usage: item.weekly_usage !== null && item.weekly_usage !== undefined ? item.weekly_usage : '',
         estimated_duration: item.estimated_duration !== null && item.estimated_duration !== undefined ? item.estimated_duration : '',
@@ -56,7 +54,6 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
         location: '',
         unit_price: 0,
         provider: '',
-        category: 'General',
         unit: 'Piezas',
         weekly_usage: '',
         estimated_duration: '',
@@ -80,7 +77,6 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
       location: formData.location || null,
       unit_price: formData.unit_price === '' || formData.unit_price === null ? 0 : parseFloat(formData.unit_price),
       provider: formData.provider || null,
-      category: formData.category || 'General',
       unit: formData.unit || 'Piezas',
       weekly_usage: formData.weekly_usage === '' || formData.weekly_usage === null ? 0 : parseFloat(formData.weekly_usage),
       estimated_duration: formData.estimated_duration === '' || formData.estimated_duration === null ? null : parseFloat(formData.estimated_duration),
@@ -189,16 +185,6 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                       onChange={e => setFormData({...formData, part_number: e.target.value})}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors font-mono"
                       placeholder="Ej: PN-99234-A"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-400">Categoría</label>
-                    <input 
-                      type="text" 
-                      value={formData.category}
-                      onChange={e => setFormData({...formData, category: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors"
-                      placeholder="Ej: Mecánico, Consumibles, Limpieza"
                     />
                   </div>
                 </div>
