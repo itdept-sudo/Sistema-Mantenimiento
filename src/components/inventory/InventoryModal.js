@@ -173,6 +173,12 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                       <option value="Paquetes">Paquetes</option>
                       <option value="Litros">Litros</option>
                       <option value="Metros">Metros</option>
+                      <option value="Galones">Galones</option>
+                      <option value="Cubeta 1 Galon">Cubeta 1 Galón</option>
+                      <option value="Cubeta 5 Galones">Cubeta 5 Galones</option>
+                      <option value="Tibor 25 Galones">Tibor 25 Galones</option>
+                      <option value="Tibor 50 Galones">Tibor 50 Galones</option>
+                      <option value="Costal 10 LB">Costal 10 LB</option>
                     </select>
                   </div>
                 </div>
