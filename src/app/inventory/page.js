@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/AuthContext';
 import { 
   Package, 
   Search, 
@@ -19,13 +20,15 @@ import {
   X,
   Save,
   Calendar,
-  Layers
+  Layers,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import InventoryModal from '@/components/inventory/InventoryModal';
 import StockAdjustmentModal from '@/components/inventory/StockAdjustmentModal';
 import InventoryHistoryModal from '@/components/inventory/InventoryHistoryModal';
 import InventoryReportModal from '@/components/inventory/InventoryReportModal';
+import DeletedItemsModal from '@/components/inventory/DeletedItemsModal';
 
 export default function InventoryPage() {
   const [items, setItems] = useState([]);
@@ -51,6 +54,13 @@ export default function InventoryPage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedImagePreview, setSelectedImagePreview] = useState(null);
+
+  // Soft deletion and history modals state
+  const [isDeletedItemsModalOpen, setIsDeletedItemsModalOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [deletingItem, setDeletingItem] = useState(false);
+  
+  const { user, profile } = useAuth();
 
   const fetchInventories = async () => {
     if (!supabase) return;
@@ -89,7 +99,10 @@ export default function InventoryPage() {
         .order('name', { ascending: true });
       
       if (error) throw error;
-      if (data) setItems(data);
+      if (data) {
+        // Exclude logically deleted items
+        setItems(data.filter(item => item.is_deleted !== true));
+      }
     } catch (err) {
       console.error("Error fetching inventory items:", err);
     } finally {
@@ -155,6 +168,48 @@ export default function InventoryPage() {
     }
   };
 
+  const handleDeleteItem = async () => {
+    if (!supabase || !selectedItem) return;
+    setDeletingItem(true);
+    try {
+      // 1. Soft delete the item
+      const { error } = await supabase
+        .from('inventory')
+        .update({ 
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          deleted_by: user?.id
+        })
+        .eq('id', selectedItem.id);
+
+      if (error) throw error;
+
+      // 2. Log deletion to history
+      try {
+        await supabase.from('inventory_logs').insert([{
+          item_id: selectedItem.id,
+          type: 'exit',
+          quantity: selectedItem.stock_current,
+          previous_stock: selectedItem.stock_current,
+          new_stock: 0,
+          reason: `Artículo eliminado del inventario por ${profile?.full_name || 'Usuario'}`,
+          user_id: user?.id
+        }]);
+      } catch (logErr) {
+        console.warn("Error logging deletion to inventory_logs:", logErr);
+      }
+
+      setIsDeleteConfirmOpen(false);
+      setSelectedItem(null);
+      await fetchInventory();
+    } catch (err) {
+      console.error("Error deleting item:", err);
+      alert("Error al eliminar el artículo.");
+    } finally {
+      setDeletingItem(false);
+    }
+  };
+
   const categories = ['All', ...new Set(items.map(i => i.category || 'General'))];
 
   const filteredItems = items.filter(item => {
@@ -191,9 +246,18 @@ export default function InventoryPage() {
         </div>
         
         <div className="flex items-center gap-3">
+          {(profile?.role === 'admin' || profile?.role === 'supervisor') && (
+            <button 
+              onClick={() => setIsDeletedItemsModalOpen(true)}
+              className="flex-1 md:flex-none bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-750 px-6 py-3 rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              <Trash2 className="w-5 h-5 text-red-400" /> Items Eliminados
+            </button>
+          )}
+
           <button 
             onClick={() => setIsReportModalOpen(true)}
-            className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-6 py-3 rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+            className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 px-6 py-3 rounded-2xl font-bold shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
           >
             <FileDown className="w-5 h-5 text-blue-500" /> Exportar PDF
           </button>
@@ -430,6 +494,15 @@ export default function InventoryPage() {
                         >
                           <Edit className="w-5 h-5" />
                         </button>
+                        {(profile?.role === 'admin' || profile?.role === 'supervisor' || profile?.role === 'inventory') && (
+                          <button 
+                            onClick={() => { setSelectedItem(item); setIsDeleteConfirmOpen(true); }}
+                            className="p-3 bg-slate-800 hover:bg-red-500/10 text-slate-400 hover:text-red-400 rounded-xl transition-all shadow-sm border border-transparent hover:border-red-500/20"
+                            title="Eliminar Artículo"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -544,6 +617,66 @@ export default function InventoryPage() {
         onClose={() => setIsReportModalOpen(false)}
         items={items}
       />
+
+      <DeletedItemsModal 
+        isOpen={isDeletedItemsModalOpen}
+        onClose={() => setIsDeletedItemsModalOpen(false)}
+        selectedInventoryId={selectedInventoryId}
+        onRestoreSuccess={fetchInventory}
+      />
+
+      {/* Modal de Confirmación de Eliminación Premium */}
+      <AnimatePresence>
+        {isDeleteConfirmOpen && selectedItem && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl p-6 space-y-6"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-red-500/10 text-red-500 rounded-2xl border border-red-500/20 animate-pulse">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">¿Eliminar artículo?</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Esta acción ocultará el artículo del inventario activo.</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-950/40 p-4 border border-slate-800 rounded-2xl space-y-1">
+                <p className="text-sm font-semibold text-slate-350">{selectedItem.name}</p>
+                {selectedItem.part_number && (
+                  <p className="text-xs text-slate-500 font-mono">{selectedItem.part_number}</p>
+                )}
+                <p className="text-xs text-slate-500">Stock actual: <span className="font-bold text-slate-300">{selectedItem.stock_current} {selectedItem.unit || 'Piezas'}</span></p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setIsDeleteConfirmOpen(false); setSelectedItem(null); }}
+                  className="flex-1 py-3 bg-slate-850 hover:bg-slate-800 text-white rounded-xl font-bold transition-all text-sm"
+                  disabled={deletingItem}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteItem}
+                  className="flex-1 py-3 bg-red-650 hover:bg-red-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-red-900/20 text-sm flex items-center justify-center gap-2"
+                  disabled={deletingItem}
+                >
+                  {deletingItem ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    'Sí, Eliminar'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Lightbox / Previsualizador de Imagen */}
       <AnimatePresence>
