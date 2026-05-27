@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { X, Package, Hash, MapPin, DollarSign, Truck, AlertTriangle, Calendar, RefreshCw } from 'lucide-react';
+import { X, Package, Hash, MapPin, DollarSign, Truck, AlertTriangle, Calendar, RefreshCw, Image as ImageIcon, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function InventoryModal({ isOpen, onClose, item = null, onSuccess, selectedInventoryId }) {
@@ -20,9 +20,41 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
     weekly_usage: '',
     estimated_duration: '',
     estimated_date: '',
-    extra_info: ''
+    extra_info: '',
+    image_url: ''
   });
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `inventory/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('machines')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('machines')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, image_url: publicUrl }));
+    } catch (error) {
+      console.error('Error al subir archivo:', error);
+      alert('Error al subir la imagen: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (item) {
@@ -41,7 +73,8 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
         weekly_usage: item.weekly_usage !== null && item.weekly_usage !== undefined ? item.weekly_usage : '',
         estimated_duration: item.estimated_duration !== null && item.estimated_duration !== undefined ? item.estimated_duration : '',
         estimated_date: item.estimated_date || '',
-        extra_info: item.extra_info || ''
+        extra_info: item.extra_info || '',
+        image_url: item.image_url || ''
       });
     } else {
       setFormData({
@@ -58,7 +91,8 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
         weekly_usage: '',
         estimated_duration: '',
         estimated_date: '',
-        extra_info: ''
+        extra_info: '',
+        image_url: ''
       });
     }
   }, [item, isOpen]);
@@ -81,7 +115,8 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
       weekly_usage: formData.weekly_usage === '' || formData.weekly_usage === null ? 0 : parseFloat(formData.weekly_usage),
       estimated_duration: formData.estimated_duration === '' || formData.estimated_duration === null ? null : parseFloat(formData.estimated_duration),
       estimated_date: formData.estimated_date || null,
-      extra_info: formData.extra_info || null
+      extra_info: formData.extra_info || null,
+      image_url: formData.image_url || null
     };
 
     if (!item) {
@@ -147,51 +182,97 @@ export default function InventoryModal({ isOpen, onClose, item = null, onSuccess
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                   <Hash className="w-3 h-3" /> Información Principal
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-slate-400">Nombre del Item</label>
-                    <input 
-                      required
-                      type="text" 
-                      value={formData.name}
-                      onChange={e => setFormData({...formData, name: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors"
-                      placeholder="Ej: Rodamiento SKF 6204 o Cloro"
-                    />
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Inputs Principales (2/3 de ancho) */}
+                  <div className="md:col-span-2 space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-slate-400">Nombre del Item</label>
+                      <input 
+                        required
+                        type="text" 
+                        value={formData.name}
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors"
+                        placeholder="Ej: Rodamiento SKF 6204 o Cloro"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-400">Número de Parte / Código (Opcional)</label>
+                        <input 
+                          type="text" 
+                          value={formData.part_number}
+                          onChange={e => setFormData({...formData, part_number: e.target.value})}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors font-mono"
+                          placeholder="Ej: PN-99234-A"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-400">Unidad de Medida</label>
+                        <select
+                          value={formData.unit}
+                          onChange={e => setFormData({...formData, unit: e.target.value})}
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors"
+                        >
+                          <option value="Piezas">Piezas (Pz)</option>
+                          <option value="Caja">Caja</option>
+                          <option value="Rollo">Rollo</option>
+                          <option value="COSTAL">Costal</option>
+                          <option value="Paquetes">Paquetes</option>
+                          <option value="Litros">Litros</option>
+                          <option value="Metros">Metros</option>
+                          <option value="Galones">Galones</option>
+                          <option value="Cubeta 1 Galon">Cubeta 1 Galón</option>
+                          <option value="Cubeta 5 Galones">Cubeta 5 Galones</option>
+                          <option value="Tibor 25 Galones">Tibor 25 Galones</option>
+                          <option value="Tibor 50 Galones">Tibor 50 Galones</option>
+                          <option value="Costal 10 LB">Costal 10 LB</option>
+                        </select>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-400">Unidad de Medida</label>
-                    <select
-                      value={formData.unit}
-                      onChange={e => setFormData({...formData, unit: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors"
+
+                  {/* Carga de Imagen Premium (1/3 de ancho) */}
+                  <div className="space-y-2 flex flex-col justify-end">
+                    <label className="text-sm font-medium text-slate-400 flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-slate-500" /> Imagen del Item
+                    </label>
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-1 min-h-[140px] rounded-2xl border-2 border-dashed border-slate-800 bg-slate-950 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500/50 transition-all overflow-hidden group relative"
                     >
-                      <option value="Piezas">Piezas (Pz)</option>
-                      <option value="Caja">Caja</option>
-                      <option value="Rollo">Rollo</option>
-                      <option value="COSTAL">Costal</option>
-                      <option value="Paquetes">Paquetes</option>
-                      <option value="Litros">Litros</option>
-                      <option value="Metros">Metros</option>
-                      <option value="Galones">Galones</option>
-                      <option value="Cubeta 1 Galon">Cubeta 1 Galón</option>
-                      <option value="Cubeta 5 Galones">Cubeta 5 Galones</option>
-                      <option value="Tibor 25 Galones">Tibor 25 Galones</option>
-                      <option value="Tibor 50 Galones">Tibor 50 Galones</option>
-                      <option value="Costal 10 LB">Costal 10 LB</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-400">Número de Parte / Código (Opcional)</label>
-                    <input 
-                      type="text" 
-                      value={formData.part_number}
-                      onChange={e => setFormData({...formData, part_number: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 px-4 text-white focus:border-blue-500 transition-colors font-mono"
-                      placeholder="Ej: PN-99234-A"
-                    />
+                      {formData.image_url ? (
+                        <>
+                          <img src={formData.image_url} className="w-full h-full object-cover" alt="Previsualización" />
+                          <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all">
+                            <Upload className="w-6 h-6 text-white mb-1 drop-shadow" />
+                            <span className="text-[10px] text-white bg-slate-900/90 px-2.5 py-1 rounded-full font-bold">Cambiar Imagen</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center p-3">
+                          <Upload className="w-7 h-7 text-slate-700 mx-auto mb-1.5 group-hover:text-blue-500 transition-colors" />
+                          <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Cargar Foto</p>
+                          <p className="text-[9px] text-slate-600 mt-0.5">Formatos: JPG, PNG, WEBP</p>
+                        </div>
+                      )}
+                      
+                      {uploading && (
+                        <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center">
+                          <RefreshCw className="w-6 h-6 animate-spin text-blue-400" />
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        onChange={handleFileUpload} 
+                        accept="image/*" 
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

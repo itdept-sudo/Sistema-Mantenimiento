@@ -50,6 +50,7 @@ export default function InventoryPage() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState(null);
 
   const fetchInventories = async () => {
     if (!supabase) return;
@@ -319,12 +320,25 @@ export default function InventoryPage() {
                   <tr key={item.id} className="group hover:bg-white/[0.02] transition-all">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all shadow-inner ${
-                          isCritical ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                          isLow ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                          'bg-slate-800 text-blue-400 border-slate-700'
-                        }`}>
-                          <Package className="w-6 h-6" />
+                        <div 
+                          onClick={() => item.image_url && setSelectedImagePreview(item.image_url)}
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all shadow-inner overflow-hidden relative group/img ${
+                            item.image_url ? 'cursor-zoom-in border-slate-750 bg-slate-900 hover:border-blue-500/40' :
+                            isCritical ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                            isLow ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
+                            'bg-slate-800 text-blue-400 border-slate-700'
+                          }`}
+                          title={item.image_url ? "Ver foto en tamaño completo" : undefined}
+                        >
+                          {item.image_url ? (
+                            <img 
+                              src={item.image_url} 
+                              alt={item.name} 
+                              className="w-full h-full object-cover transition-transform duration-555 group-hover/img:scale-115"
+                            />
+                          ) : (
+                            <Package className="w-6 h-6" />
+                          )}
                         </div>
                         <div>
                           <p className="font-bold text-slate-200 group-hover:text-white transition-colors">{item.name}</p>
@@ -530,6 +544,42 @@ export default function InventoryPage() {
         onClose={() => setIsReportModalOpen(false)}
         items={items}
       />
+
+      {/* Lightbox / Previsualizador de Imagen */}
+      <AnimatePresence>
+        {selectedImagePreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedImagePreview(null)}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md cursor-zoom-out"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative max-w-4xl max-h-[85vh] bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl p-2 animate-none"
+            >
+              {/* Botón de cerrar */}
+              <button 
+                onClick={() => setSelectedImagePreview(null)}
+                className="absolute top-4 right-4 z-10 p-2 bg-slate-950/80 hover:bg-slate-900 rounded-full text-slate-400 hover:text-white transition-all shadow-lg border border-slate-800/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <img 
+                src={selectedImagePreview} 
+                className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-inner" 
+                alt="Vista ampliada del artículo"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
