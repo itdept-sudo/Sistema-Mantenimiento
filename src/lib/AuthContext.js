@@ -66,7 +66,29 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      setProfile(currentProfileData);
+      // Check if user is a responsible of any inventory
+      let isResponsible = false;
+      let assignedInventories = [];
+      try {
+        const { data: invs } = await supabase
+          .from('inventories')
+          .select('id, name')
+          .eq('responsable_id', userId);
+        if (invs && invs.length > 0) {
+          isResponsible = true;
+          assignedInventories = invs;
+        }
+      } catch (invErr) {
+        console.warn("Error checking responsible inventories:", invErr);
+      }
+
+      const profileWithResponsible = {
+        ...currentProfileData,
+        is_responsible: isResponsible,
+        assigned_inventories: assignedInventories
+      };
+
+      setProfile(profileWithResponsible);
       localStorage.setItem('user_role', currentProfileData.role);
     } catch (err) {
       console.error("Error refreshing profile:", err);

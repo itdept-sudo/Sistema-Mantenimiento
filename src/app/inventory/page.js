@@ -41,6 +41,10 @@ export default function InventoryPage() {
   const [selectedInventoryId, setSelectedInventoryId] = useState(null);
   const [selectedInventoryName, setSelectedInventoryName] = useState('');
   
+  // Admin Responsible management state
+  const [profiles, setProfiles] = useState([]);
+  const [updatingResponsible, setUpdatingResponsible] = useState(false);
+
   // New Inventory Modal State
   const [isNewInvModalOpen, setIsNewInvModalOpen] = useState(false);
   const [newInvName, setNewInvName] = useState('');
@@ -62,25 +66,77 @@ export default function InventoryPage() {
   
   const { user, profile } = useAuth();
 
+  const fetchProfiles = async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .order('full_name');
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (err) {
+      console.error("Error fetching profiles:", err);
+    }
+  };
+
+  const handleUpdateResponsible = async (responsibleId) => {
+    if (!supabase || !selectedInventoryId) return;
+    setUpdatingResponsible(true);
+    try {
+      const { error } = await supabase
+        .from('inventories')
+        .update({ responsable_id: responsibleId || null })
+        .eq('id', selectedInventoryId);
+      if (error) throw error;
+      
+      // Update local state
+      setInventories(prev => prev.map(inv => 
+        inv.id === selectedInventoryId 
+          ? { ...inv, responsable_id: responsibleId || null } 
+          : inv
+      ));
+    } catch (err) {
+      console.error("Error updating responsible:", err);
+      alert("Error al actualizar el responsable.");
+    } finally {
+      setUpdatingResponsible(false);
+    }
+  };
+
   const fetchInventories = async () => {
     if (!supabase) return;
     try {
       const { data, error } = await supabase
         .from('inventories')
-        .select('*')
+        .select('*, profiles:responsable_id(full_name)')
         .order('name', { ascending: true });
       
       if (error) throw error;
       if (data) {
-        setInventories(data);
-        // Default to Repuestos if found, otherwise first available
-        const repuestos = data.find(i => i.name === 'Repuestos');
-        if (repuestos && !selectedInventoryId) {
-          setSelectedInventoryId(repuestos.id);
-          setSelectedInventoryName(repuestos.name);
-        } else if (data.length > 0 && !selectedInventoryId) {
-          setSelectedInventoryId(data[0].id);
-          setSelectedInventoryName(data[0].name);
+        let filteredData = data;
+        const isManager = profile?.role === 'admin' || profile?.role === 'supervisor';
+        if (!isManager && profile?.id) {
+          const assigned = data.filter(inv => inv.responsable_id === profile.id);
+          if (assigned.length > 0) {
+            filteredData = assigned;
+          }
+        }
+        setInventories(filteredData);
+        
+        // Default selection logic
+        const currentActive = filteredData.find(i => i.id === selectedInventoryId);
+        if (!currentActive && filteredData.length > 0) {
+          const repuestos = filteredData.find(i => i.name === 'Repuestos');
+          if (repuestos) {
+            setSelectedInventoryId(repuestos.id);
+            setSelectedInventoryName(repuestos.name);
+          } else {
+            setSelectedInventoryId(filteredData[0].id);
+            setSelectedInventoryName(filteredData[0].name);
+          }
+        } else if (currentActive) {
+          setSelectedInventoryName(currentActive.name);
         }
       }
     } catch (err) {
@@ -110,17 +166,20 @@ export default function InventoryPage() {
     }
   };
 
-  // Load inventories list on mount
+  // Load inventories & profiles list on mount / profile load
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchInventories();
+    if (profile) {
+      fetchInventories();
+      if (profile.role === 'admin') {
+        fetchProfiles();
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [profile]);
 
   // Fetch items whenever the selected inventory changes
   useEffect(() => {
     if (selectedInventoryId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchInventory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,7 +195,9 @@ export default function InventoryPage() {
       .on('postgres_changes', { event: '*', table: 'inventories' }, () => fetchInventories())
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedInventoryId]);
 
@@ -241,6 +302,32 @@ export default function InventoryPage() {
                 Inventario: {selectedInventoryName || 'Cargando...'}
               </h1>
               <p className="text-slate-400 text-sm">Gestión de stock, suministros y consumos de material.</p>
+              {profile?.role === 'admin' ? (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Responsable Almacén:</span>
+                  <select
+                    value={inventories.find(inv => inv.id === selectedInventoryId)?.responsable_id || ''}
+                    onChange={(e) => handleUpdateResponsible(e.target.value)}
+                    disabled={updatingResponsible}
+                    className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-350 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                  >
+                    <option value="">Sin responsable</option>
+                    {profiles.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.full_name || p.email} ({p.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                inventories.find(inv => inv.id === selectedInventoryId)?.profiles?.full_name && (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Responsable: <span className="text-slate-400 font-semibold">
+                      {inventories.find(inv => inv.id === selectedInventoryId)?.profiles?.full_name}
+                    </span>
+                  </p>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -272,34 +359,38 @@ export default function InventoryPage() {
       </div>
 
       {/* Inventory Tabs / Selector */}
-      <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-2 rounded-3xl border border-slate-800/80 backdrop-blur-md">
-        {inventories.map((inv) => {
-          const isActive = selectedInventoryId === inv.id;
-          return (
+      {((inventories.length > 1) || (profile?.role === 'admin' || profile?.role === 'supervisor')) && (
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900/40 p-2 rounded-3xl border border-slate-800/80 backdrop-blur-md">
+          {inventories.map((inv) => {
+            const isActive = selectedInventoryId === inv.id;
+            return (
+              <button
+                key={inv.id}
+                onClick={() => {
+                  setSelectedInventoryId(inv.id);
+                  setSelectedInventoryName(inv.name);
+                  setCategoryFilter('All');
+                }}
+                className={`relative px-5 py-3 rounded-2xl font-bold text-sm transition-all whitespace-nowrap active:scale-95 ${
+                  isActive 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                }`}
+              >
+                {inv.name}
+              </button>
+            );
+          })}
+          {(profile?.role === 'admin' || profile?.role === 'supervisor') && (
             <button
-              key={inv.id}
-              onClick={() => {
-                setSelectedInventoryId(inv.id);
-                setSelectedInventoryName(inv.name);
-                setCategoryFilter('All');
-              }}
-              className={`relative px-5 py-3 rounded-2xl font-bold text-sm transition-all whitespace-nowrap active:scale-95 ${
-                isActive 
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-              }`}
+              onClick={() => setIsNewInvModalOpen(true)}
+              className="px-5 py-3 rounded-2xl font-bold text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 border border-dashed border-blue-500/20 hover:border-blue-500/40 transition-all flex items-center gap-1.5 active:scale-95 ml-auto"
             >
-              {inv.name}
+              <Plus className="w-4 h-4" /> Nuevo Almacén
             </button>
-          );
-        })}
-        <button
-          onClick={() => setIsNewInvModalOpen(true)}
-          className="px-5 py-3 rounded-2xl font-bold text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 border border-dashed border-blue-500/20 hover:border-blue-500/40 transition-all flex items-center gap-1.5 active:scale-95 ml-auto"
-        >
-          <Plus className="w-4 h-4" /> Nuevo Almacén
-        </button>
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Quick Stats Container */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">

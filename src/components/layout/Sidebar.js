@@ -14,7 +14,9 @@ import {
   LogOut,
   Users,
   X,
-  Cpu
+  Cpu,
+  ShoppingCart,
+  PlusCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -31,7 +33,9 @@ const navItems = [
   { name: 'Órdenes', href: '/orders', icon: ClipboardList, roles: ['admin', 'supervisor', 'inventory', 'viewer'] },
   { name: 'Mis Solicitudes', href: '/orders', icon: ClipboardList, roles: ['employee'] },
   { name: 'Maquinaria', href: '/machines', icon: Cpu, roles: ['admin', 'supervisor', 'inventory'] },
-  { name: 'Inventario', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'inventory'] },
+  { name: 'Inventario', href: '/inventory', icon: Package, roles: ['admin', 'supervisor', 'inventory', 'buyer'] },
+  { name: 'Órdenes de Compra', href: '/purchases', icon: ShoppingCart, roles: ['admin', 'supervisor', 'inventory', 'buyer'] },
+  { name: 'Solicitar Material', href: '/request-material', icon: PlusCircle, roles: ['admin', 'supervisor', 'inventory', 'buyer', 'technician', 'employee'] },
   { name: 'Calendario', href: '/calendar', icon: Calendar, roles: ['admin', 'supervisor', 'inventory', 'technician'] },
   { name: 'Usuarios', href: '/users', icon: Users, roles: ['admin'] },
 ];
@@ -45,11 +49,13 @@ export default function Sidebar({ isOpen, onClose }) {
     setMounted(true);
   }, []);
   
-  // Use a stable role for the initial render to prevent hydration mismatch
   const userRole = (mounted && (profile?.role || (typeof window !== 'undefined' ? localStorage.getItem('user_role') : null))) || 'technician';
 
   const filteredItems = navItems.filter(item => {
     if (!item.roles) return true;
+    if (profile?.is_responsible && (item.href === '/inventory' || item.href === '/purchases')) {
+      return true;
+    }
     return item.roles.includes(userRole);
   });
 
@@ -138,4 +144,3 @@ export default function Sidebar({ isOpen, onClose }) {
     </>
   );
 }
-

@@ -32,13 +32,17 @@ export default function Dashboard() {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Redirección de seguridad para Técnicos y Empleados
+  // Redirección de seguridad para Responsables de Almacén, Técnicos y Empleados
   useEffect(() => {
     if (!authLoading && profile) {
-      if (profile.role === 'technician') {
+      if (profile.is_responsible) {
+        router.push('/inventory');
+      } else if (profile.role === 'technician') {
         router.push('/my-tasks');
       } else if (profile.role === 'employee' || profile.role === 'viewer') {
         router.push('/orders');
+      } else if (profile.role === 'buyer') {
+        router.push('/purchases');
       }
     }
   }, [profile, authLoading, router]);
@@ -108,11 +112,15 @@ export default function Dashboard() {
         const { data, error } = await supabase
           .from('inventory')
           .select('name, stock_current, stock_min')
-          .filter('stock_current', 'lte', 'stock_min')
-          .order('stock_current', { ascending: true })
-          .limit(3);
+          .eq('is_deleted', false)
+          .order('stock_current', { ascending: true });
         if (error) throw error;
-        if (data) setInventoryAlerts(data);
+        if (data) {
+          const alerts = data
+            .filter(item => item.stock_current <= item.stock_min)
+            .slice(0, 3);
+          setInventoryAlerts(alerts);
+        }
       } catch (err) {
         console.error("Inventory Fetch Error:", err);
       }

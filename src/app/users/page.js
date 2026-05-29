@@ -274,6 +274,7 @@ export default function UsersPage() {
     { id: 'admin', name: 'Administrador', color: 'text-red-400 bg-red-400/10' },
     { id: 'supervisor', name: 'Encargado', color: 'text-orange-400 bg-orange-400/10' },
     { id: 'inventory', name: 'Inventario', color: 'text-emerald-400 bg-emerald-400/10' },
+    { id: 'buyer', name: 'Comprador (Compras)', color: 'text-violet-400 bg-violet-400/10' },
     { id: 'technician', name: 'Técnico', color: 'text-blue-400 bg-blue-400/10' },
     { id: 'employee', name: 'Empleado (Solo Reportar)', color: 'text-slate-400 bg-slate-800' },
     { id: 'viewer', name: 'Pantalla (Solo Visualizar)', color: 'text-fuchsia-400 bg-fuchsia-400/10' }
